@@ -2,6 +2,7 @@ import os
 import logging
 import ConfigParser
 import time
+import datetime
 from slack import Slack
 
 # logging
@@ -19,8 +20,34 @@ cfg_file_path = 'ixchel.cfg'
 
 
 class Ixchel:
-    def __init__(self):
+    # main loop delay
+    loop_delay_s = 0.5
+
+    # main ping delay
+    slack_ping_delay_s = 5
+
+    # reconnect delay
+    slack_reconnect_delay_s = 10
+
+    def __init__(self, config):
         self.logger = logging.getLogger('ixchel.Ixchel')
+        self.config = config
+        self.slack = Slack(self.config)
+
+    def loop(self):
+        # connect to Slack
+        self.slack.connect()
+        # main loop
+        while True:
+            while self.slack.connected:
+                # check to be sure we are still connected to the server
+                self.slack.ping()
+                # get messages
+                messages = self.slack.read_messages()
+                self.logger.debug(messages)
+                time.sleep(self.loop_delay_s)
+            time.sleep(self.slack_reconnect_delay_s)
+            self.slack.connect()
 
 
 def main():
@@ -30,26 +57,13 @@ def main():
     logger.info('Reading configuration from file (%s)...' % cfg_file_path)
     if not os.path.exists(cfg_file_path):
         raise Exception('Configuration file (%s) is missing.' % cfg_file_path)
-    config = ConfigParser.RawConfigParser()
+    config = ConfigParser.SafeConfigParser()
     config.read(cfg_file_path)
 
     # Mayan goddess of the moon, medicine, and birth (mid-wifery). Stronger half of Itzamna!
-    ixchel = Ixchel()
+    ixchel = Ixchel(config)
 
-    # init Slack client
-    slack = Slack(config.get('slack', 'token'), config.get(
-        'slack', 'username'), config.get('slack', 'channel'))
-    # connect to Slack channel
-    slack.connect()
-    slack.join_channel(config.get('slack', 'channel'))
-    slack.send_message('This is a test!')
-    slack.send_file('photo.jpg')
-
-    # data loop
-    while True:
-        messages = slack.read_messages()
-        logger.debug(messages)
-        time.sleep(1)
+    ixchel.loop()
 
 
 if __name__ == "__main__":

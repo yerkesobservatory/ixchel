@@ -49,17 +49,22 @@ class Slack:
             self.connected = False
             return []
 
-    def send_message(self, message):
+    def send_message(self, message, channel=None, username=None):
         if not self.connected:
             self.logger.warning(
                 'Could not send message (%s). Not connected.' % message)
             return False
+        # use default values if none sent
+        if channel == None:
+            channel = self.channel
+        if username == None:
+            username = self.username
         try:
             self.sc.api_call(
                 "chat.postMessage",
-                channel=self.channel,
+                channel=channel,
                 text=message,
-                username=self.username,
+                username=username,
             )
         except:
             self.logger.error(
@@ -67,7 +72,7 @@ class Slack:
             return False
         return True
 
-    def send_file(self, path, title=''):
+    def send_file(self, path, title=None, channel=None, username=None):
         if not os.path.exists(path):
             self.logger.error(
                 'File (%s) does not exist.' % path)
@@ -76,9 +81,14 @@ class Slack:
             self.logger.warning(
                 'Could not send file (%s). Not connected.' % path)
             return False
+        # use default values if none sent
+        if channel == None:
+            channel = self.channel
+        if username == None:
+            username = self.username
         try:
             files = {'file': open(path, 'rb')}
-            data = {'channels': self.channel,
+            data = {'channels': channel,
                     'title': title, 'token': self.token}
             r = requests.post('https://slack.com/api/files.upload',
                               files=files, data=data)
@@ -88,13 +98,48 @@ class Slack:
             return False
         return r.ok
 
-    # def get_channels(self):
-    #     try:
-    #         result = self.sc.api_call("channels.list")
-    #         return result['channels']
-    #     except:
-    #         self.logger.error('Could not get channel list.')
-    #         return []
+    def get_channels(self):
+        try:
+            result = self.sc.api_call("channels.list")
+            return result['channels']
+        except:
+            self.logger.error('Exception occurred getting channel list.')
+            return []
+
+    def get_channel_id(self, channel):
+        channel_id = None
+        for ch in self.get_channels():
+            if 'name' in ch and ch['name'] == channel:
+                channel_id = ch['id']
+                self.logger.debug('Channel (%s) id is %s.' %
+                                  (channel, channel_id))
+                break
+        return channel_id
+
+    def get_users(self):
+        try:
+            result = self.sc.api_call("users.list")
+            return result['members']
+        except:
+            self.logger.error('Exception occurred getting user list.')
+            return []
+
+    def get_user_by_id(self, id):
+        for u in self.get_users():
+            if 'id' in u and u['id'] == id:
+                return u
+        self.logger.error('No user found with id = %s.' % id)
+        return {}
+
+    # def get_user_id(self, username):
+    #     user_id = None
+    #     for user in self.get_users():
+    #         if 'real_name' in user and user['real_name'] == username:
+    #             user_id = user['id']
+    #             self.logger.debug('User (%s) id is %s.' %
+    #                               (username, user_id))
+    #             break
+    #     return user_id
 
     # def join_channel(self, channel):
     #     channel_id = None

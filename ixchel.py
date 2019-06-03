@@ -7,6 +7,7 @@ import json
 import re
 from ixchel_commands import IxchelCommands
 from slack import Slack
+from config import Config
 
 # logging
 logging.basicConfig(
@@ -102,8 +103,7 @@ def main():
     logger.info('Reading configuration from file (%s)...' % cfg_file_path)
     if not os.path.exists(cfg_file_path):
         raise Exception('Configuration file (%s) is missing.' % cfg_file_path)
-    config = ConfigParser.SafeConfigParser()
-    config.read(cfg_file_path)
+    config = Config(cfg_file_path)
 
     # Mayan goddess of the moon, medicine, and birth (mid-wifery). Stronger half of Itzamna!
     ixchel = Ixchel(config)

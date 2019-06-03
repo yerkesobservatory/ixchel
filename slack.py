@@ -15,9 +15,9 @@ class Slack:
         self.channel = self.config.get('slack', 'channel')
         self.username = self.config.get('slack', 'username')
         self.dt_last_ping = datetime.datetime.now()
-        self.ping_delay_s = self.config.getfloat('slack', 'ping_delay_s')
-        self.reconnect_delay_s = self.config.getfloat(
-            'slack', 'reconnect_delay_s')
+        self.ping_delay_s = float(self.config.get('slack', 'ping_delay_s', 5))
+        self.reconnect_delay_s = float(self.config.get(
+            'slack', 'reconnect_delay_s', 10))
         self.connected = False
         # init the slack client
         self.sc = SlackClient(self.token)
@@ -49,7 +49,7 @@ class Slack:
             self.connected = False
             return []
 
-    def send_message(self, message, channel=None, username=None):
+    def send_message(self, message, attachments=None, channel=None, username=None):
         if not self.connected:
             self.logger.warning(
                 'Could not send message (%s). Not connected.' % message)
@@ -65,6 +65,7 @@ class Slack:
                 channel=channel,
                 text=message,
                 username=username,
+                attachments=attachments
             )
         except:
             self.logger.error(

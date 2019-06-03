@@ -51,7 +51,6 @@ class IxchelCommands:
             r = requests.post(url)
             if r.ok:
                 data = r.json()
-                self.logger.debug(data)
                 station = data.get('name', 'Unknown')
                 clouds = data.get('clouds').get('all', 0)
                 conditions = data.get('weather')[0].get('main', 'Unknown')

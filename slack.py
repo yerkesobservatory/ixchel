@@ -25,8 +25,8 @@ class Slack:
     def connect(self):
         try:
             self.connected = self.sc.rtm_connect()
-        except:
-            self.logger.error('Connect failed.')
+        except Exception as e:
+            self.logger.error('Connect failed. Exception (%s).' % e.message)
             self.connected = False
 
     def ping(self):
@@ -35,15 +35,15 @@ class Slack:
                 self.sc.server.websocket.send(json.dumps({"type": "ping"}))
                 self.dt_last_ping = datetime.datetime.now()
                 return True
-            except:
-                self.logger.error('Ping failed.')
+            except Exception as e:
+                self.logger.error('Ping failed (%s).' % e.message)
                 self.connected = False
                 return False
 
     def read_messages(self):
         try:
             return self.sc.rtm_read()
-        except:
+        except Exception as e:
             self.logger.error(
                 'Read messages failed.')
             self.connected = False
@@ -67,9 +67,9 @@ class Slack:
                 username=username,
                 attachments=attachments
             )
-        except:
+        except Exception as e:
             self.logger.error(
-                'Could not send message (%s). Exception.' % message)
+                'Could not send message (%s). Exception (%s).' % (message, e.message))
             return False
         return True
 
@@ -93,9 +93,9 @@ class Slack:
                     'title': title, 'token': self.token}
             r = requests.post('https://slack.com/api/files.upload',
                               files=files, data=data)
-        except:
+        except Exception as e:
             self.logger.error(
-                'Could not send file (%s). Exception.' % path)
+                'Could not send file (%s). Exception.' % (path, e.message))
             return False
         return r.ok
 
@@ -103,8 +103,9 @@ class Slack:
         try:
             result = self.sc.api_call("channels.list")
             return result['channels']
-        except:
-            self.logger.error('Exception occurred getting channel list.')
+        except Exception as e:
+            self.logger.error(
+                'Failed to get channel list. Exception (%s).' % e.message)
             return []
 
     def get_channel_id(self, channel):
@@ -121,8 +122,9 @@ class Slack:
         try:
             result = self.sc.api_call("users.list")
             return result['members']
-        except:
-            self.logger.error('Exception occurred getting user list.')
+        except Exception as e:
+            self.logger.error(
+                'Failed to get user list. Exception (%s).' % e.message)
             return []
 
     def get_user_by_id(self, id):
@@ -155,7 +157,7 @@ class Slack:
     #         return False
     #     try:
     #         self.sc.api_call("channels.join", channel=channel_id)
-    #     except:
+    #     except Exception as e:
     #         self.logger.error(
     #             'Could not join channel (%s). Exception.' % channel)
     #         return False
@@ -175,7 +177,7 @@ class Slack:
     #         data = {'token': self.token}
     #         r = requests.post(
     #             'https://slack.com/api/users.setPhoto', files=files, data=data)
-    #     except:
+    #     except Exception as e:
     #         self.logger.error(
     #             'Could not set user photo (%s). Exception.' % user_photo_path)
     #         return False

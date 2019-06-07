@@ -1,78 +1,103 @@
 import logging
 import paramiko
+import subprocess
+
+
+class SSH:
+    def __init__(self, config):
+        self.logger = logging.getLogger('ixchel.SSH')
+        self.config = config
+        self.server = self.config.get('ssh', 'server')
+        self.username = self.config.get('ssh', 'username')
+        self.key_path = self.config.get('ssh', 'key_path')
+        # init Paramiko
+        self.ssh = paramiko.SSHClient()
+        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    def connect(self):
+        try:
+            self.ssh.connect(self.server, username=self.username,
+                             key_filename=self.key_path)
+            self.command('echo its alive')  # test the connection
+            return True
+        except Exception as e:
+            self.logger.error(
+                'SSH initialization failed. Exception (%s).' % e.message)
+        return False
+
+    def command(self, command):
+        try:
+            stdin, stdout, stderr = self.ssh.exec_command(command)
+            return (stdout.readlines(), stderr.readlines())
+        except Exception as e:
+            self.logger.error(
+                'SSH command failed. Exception (%s).' % e.message)
+        return (None, None, None)
 
 
 class Telescope:
 
+    ssh = None
+
     def __init__(self, config):
         self.logger = logging.getLogger('ixchel.Telescope')
         self.config = config
+        self.use_ssh = self.config.get('telescope', 'use_ssh', False)
+        if self.use_ssh:
+            self.ssh = SSH(config)
+            self.ssh.connect()
 
     def init_ssh(self):
-        server = 
-        username = 
-        key_filename = 
-        
-        self.ssh = paramiko.SSHClient()
-        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh.connect(ssh_hostname, username=ssh_username,
-                    key_filename=ssh_private_key_path)
+        server = self.config.get('ssh', 'server')
+        username = self.config.get('ssh', 'username')
+        key_path = self.config.get('ssh', 'key_path')
+
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(server, username=username, key_filename=key_path)
         try:
-            stdin, stdout, stderr = ssh.exec_command('echo its alive')
+            ssh.exec_command('echo its alive')  # test the connection
+            return ssh
         except Exception as e:
-            logme(e.to_string())        
+            self.logger.error(
+                'SSH initialization failed. Exception (%s).' % e.message)
+        return None
 
-    def run_command(self, command):
-        # if self.ssh == None:
-        #     self.log.warn(
-        #         'SSH is not connected. Please reconnect to the telescope server.')
-        #     return None
-
-        # # make sure the connection hasn't timed out due to sleep
-        # # if it has, reconnect
-        # try:
-        #     self.ssh.exec_command('echo its alive')
-        # except Exception as e:
-        #     self.ssh = self.connect()
-
-        # # try and execute command 5 times if it fails
-        # numtries = 0
-        # exit_code = 1
-        # while numtries < 5 and exit_code != 0:
-        #     try:
-        #         self.log.info(f'Executing: {command}')
-        #         # deal with weird keepopen behavior
-        #         if re.search('keepopen*', command):
-        #             try:
-        #                 self.ssh.exec_command(command, timeout=10)
-        #                 return None
-        #             except Exception as e:
-        #                 pass
-        #         else:
-        #             stdin, stdout, stderr = self.ssh.exec_command(command)
-        #             numtries += 1
-        #             result = stdout.readlines()
-
-        #             # check exit code
-        #             exit_code = stdout.channel.recv_exit_status()
-        #             if exit_code != 0:
-        #                 self.log.warn(f'Command returned {exit_code}. Retrying in 3 seconds...')
-        #                 time.sleep(3)
-        #                 continue
-
-        #             if result:
-        #                 # valid result received
-        #                 if len(result) > 0:
-        #                     result = ' '.join(result).strip()
-        #                     self.log.info(f'Result: {result}')
-        #                     return result
-
-        #     except Exception as e:
-        #         self.log.critical(f'run_command: {e}')
-        #         self.log.critical(f'Failed while executing {command}')
-        #         self.log.critical('Please manually close the dome by running'
-        #                           ' `closedown` and `logout`.')
-
-        #         raise UnknownErrorException
-
-        # return None
+    def command(self, command, use_communicate=True, timeout=0):
+        # add a timeout to this command
+        if timeout > 0:
+            command = 'timeout %f ' % timeout + command
+        # use ssh
+        if self.use_ssh:
+            if self.ssh == None:  # not connected?
+                self.logger.warn(
+                    'SSH is not connected. Reconnecting...')
+                self.ssh.connect()
+            else:  # need to reconnect?
+                try:
+                    self.ssh.command('echo its alive')
+                except Exception as e:
+                    self.logger.warn(
+                        'SSH is not connected. Reconnecting...')
+                    self.ssh.connect()
+            try:
+                return self.ssh.command(command)
+            except Exception as e:
+                self.logger.error(
+                    'Command (%s) via SSH failed. Exception (%s).')
+                return None
+        else:  # use local
+            command_array = command.split()
+            try:
+                sp = subprocess.Popen(
+                    command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+                sp.wait()
+                if communicate:
+                    output, error = sp.communicate(b'\n\n')
+                    return (output.splitlines(), error.splitlines())
+                else:  # some processes, like keepopen, hang forever with .communicate()
+                    return ([''], [''])
+            except Exception as e:
+                self.logger.error(
+                    'Command (%s) via SSH failed. Exception (%s).')
+                return None

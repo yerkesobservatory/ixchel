@@ -9,12 +9,13 @@ class IxchelCommands:
 
     commands = []
 
-    def __init__(self, config, slack):
+    def __init__(self, config, slack, telescope):
         self.logger = logging.getLogger('ixchel.IxchelCommands')
         self.config = config
         self.channel = self.config.get('slack', 'channel')
         self.username = self.config.get('slack', 'username')
         self.slack = slack
+        self.telescope = telescope
         # build list of backslash commands
         self.init_commands()
 
@@ -77,9 +78,9 @@ class IxchelCommands:
             else:
                 self.slack.send_message(
                     'OpenWeatherMap API request failed (%s).' % (url))
-        except:
+        except Exception as e:
             self.logger.error(
-                'Exception occurred getting the current weather from OpenWeatherMap.')
+                'OpenWeatherMap API request failed. Exception (%s).' % e.message)
         self.slack.send_message(
             '%s was unable to grant your wish (%s).' % (self.username, text))
     # {"clouds": {"all": 1}, "name": "Sonoma", "visibility": 9656,

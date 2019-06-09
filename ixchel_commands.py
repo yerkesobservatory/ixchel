@@ -31,6 +31,11 @@ class IxchelCommands:
         self.slack.send_message(
             '%s does not recognize your command (%s).' % (self.username, text))
 
+    def handle_error(self, text, e):
+        self.logger.error(
+            'Command failed (%s). Exception (%s).' % (text, e))
+        self.slack.send_message('Error. Command (%s) failed.' % text)
+
     def help(self, text, user):
         help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
             '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
@@ -38,6 +43,25 @@ class IxchelCommands:
             if not cmd['hide']:
                 help_message += '>%s\n' % cmd['description']
         self.slack.send_message(help_message)
+
+    def where(self, text, user):
+        try:
+            # query telescope
+            outputs = self.telescope.where()
+            # assign values
+            ra = outputs['ra']['value']
+            dec = outputs['dec']['value']
+            alt = outputs['alt']['value']
+            az = outputs['az']['value']
+            slewing = outputs['slewing']['value']
+            # send output to Slack
+            self.slack.send_message('Telescope Pointing:')
+            self.slack.send_message('>RA: %s' % ra)
+            self.slack.send_message('>DEC: %s' % dec)
+            self.slack.send_message('>Alt: %s' % alt)
+            self.slack.send_message('>Az: %s' % az)
+        except Exception as e:
+            self.handle_error(text, e)
 
     def weather(self, text, user):
         base_url = self.config.get('openweathermap', 'base_url')
@@ -145,6 +169,13 @@ class IxchelCommands:
                 'regex': r'^\\weather$',
                 'function': self.weather,
                 'description': '`\\weather` shows the current weather conditions',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\where$',
+                'function': self.where,
+                'description': '`\\where` shows where the telescope is currently pointing',
                 'hide': False
             },
 

@@ -111,7 +111,6 @@ def main():
 
     # init the telescope
     telescope = Telescope(config)
-    logger.debug(telescope.command('tx where'))
 
     # Mayan goddess of the moon, medicine, and birth (mid-wifery). Stronger half of Itzamna!
     ixchel = Ixchel(config, telescope)

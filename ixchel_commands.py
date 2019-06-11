@@ -3,6 +3,9 @@
 import logging
 import re
 import requests
+import time
+import datetime
+import pytz
 
 
 class IxchelCommands:
@@ -53,13 +56,17 @@ class IxchelCommands:
             dec = outputs['dec']['value']
             alt = outputs['alt']['value']
             az = outputs['az']['value']
-            slewing = outputs['slewing']['value']
+            slewing = int(outputs['slewing']['value'])
             # send output to Slack
             self.slack.send_message('Telescope Pointing:')
             self.slack.send_message('>RA: %s' % ra)
             self.slack.send_message('>DEC: %s' % dec)
-            self.slack.send_message('>Alt: %s' % alt)
-            self.slack.send_message('>Az: %s' % az)
+            self.slack.send_message(u'>Alt: %s°' % alt)
+            self.slack.send_message(u'>Az: %s°' % az)
+            if slewing == 1:
+                self.slack.send_message('>Slewing? Yes')
+            else:
+                self.slack.send_message('>Slewing? No')
         except Exception as e:
             self.handle_error(text, e)
 
@@ -74,39 +81,91 @@ class IxchelCommands:
             base_url, latitude, longitude, api_key)
         try:
             r = requests.post(url)
-            if r.ok:
-                data = r.json()
-                station = data.get('name', 'Unknown')
-                clouds = data.get('clouds').get('all', 0)
-                conditions = data.get('weather')[0].get('main', 'Unknown')
-                temp = data.get('main').get('temp', 0)
-                wind_speed = data.get('wind').get('speed', 0)
-                wind_direction = data.get('wind').get('deg', 0)
-                humidity = data.get('main').get('humidity', 0)
-                icon_url = icon_base_url + \
-                    data.get('weather')[0].get('icon', '01d') + '.png'
-                # send weather report to Slack
-                self.slack.send_message(
-                    "", [{"image_url": "%s" % icon_url, "title": "Current Weather:"}])
-                self.slack.send_message('>Station: %s' % station)
-                self.slack.send_message('>Conditions: %s' % conditions)
-                self.slack.send_message(
-                    '>Temperature: %.1f° F' % temp)
-                self.slack.send_message('>Clouds: %0.1f%%' % clouds)
-                self.slack.send_message('>Wind Speed: %.1f mph' % wind_speed)
-                self.slack.send_message(
-                    '>Wind Direction: %.1f°' % wind_direction)
-                self.slack.send_message(
-                    '>Humidity: %.1f%%' % humidity)
-                return
-            else:
-                self.slack.send_message(
-                    'OpenWeatherMap API request failed (%s).' % (url))
         except Exception as e:
             self.logger.error(
-                'OpenWeatherMap API request failed. Exception (%s).' % e.message)
-        self.slack.send_message(
-            '%s was unable to grant your wish (%s).' % (self.username, text))
+                'OpenWeatherMap API request (%s) failed.' % url)
+            self.handle_error(text, e)
+            return
+        if r.ok:
+            data = r.json()
+            station = data.get('name', 'Unknown')
+            clouds = data.get('clouds').get('all', 0)
+            conditions = data.get('weather')[0].get('main', 'Unknown')
+            temp = data.get('main').get('temp', 0)
+            wind_speed = data.get('wind').get('speed', 0)
+            wind_direction = data.get('wind').get('deg', 0)
+            humidity = data.get('main').get('humidity', 0)
+            icon_url = icon_base_url + \
+                data.get('weather')[0].get('icon', '01d') + '.png'
+            # send weather report to Slack
+            self.slack.send_message(
+                "", [{"image_url": "%s" % icon_url, "title": "Current Weather:"}])
+            self.slack.send_message('>Station: %s' % station)
+            self.slack.send_message('>Conditions: %s' % conditions)
+            self.slack.send_message(
+                '>Temperature: %.1f° F' % temp)
+            self.slack.send_message('>Clouds: %0.1f%%' % clouds)
+            self.slack.send_message('>Wind Speed: %.1f mph' % wind_speed)
+            self.slack.send_message(
+                '>Wind Direction: %.1f°' % wind_direction)
+            self.slack.send_message(
+                '>Humidity: %.1f%%' % humidity)
+        else:
+            self.logger.error(
+                'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
+            self.handle_error(text, e)
+
+    # https://openweathermap.org/forecast5
+    def forecast(self, text, user):
+        base_url = self.config.get('openweathermap', 'base_url')
+        icon_base_url = self.config.get('openweathermap', 'icon_base_url')
+        api_key = self.config.get('openweathermap', 'api_key')
+        max_forecasts = int(self.config.get(
+            'openweathermap', 'max_forecasts', 5))
+        latitude = self.config.get('telescope', 'latitude')
+        longitude = self.config.get('telescope', 'longitude')
+        timezone = self.config.get('telescope', 'timezone', 'GMT')
+        # user the OpenWeatherMap API
+        url = '%sforecast?lat=%s&lon=%s&units=imperial&APPID=%s' % (
+            base_url, latitude, longitude, api_key)
+        try:
+            r = requests.post(url)
+        except Exception as e:
+            self.logger.error(
+                'OpenWeatherMap API request (%s) failed.' % url)
+            self.handle_error(text, e)
+            return
+        if r.ok:
+            data = r.json()
+            station = data.get('city').get('name', 'Unknown')
+            forecasts = data.get('list')
+            self.slack.send_message('Weather Forecast:')
+            self.slack.send_message('>Station: %s' % station)
+            for forecast in forecasts[:max_forecasts]:
+                dt = datetime.datetime.utcfromtimestamp(
+                    forecast.get('dt', time.time())).replace(tzinfo=pytz.utc)
+                dt_local = dt.astimezone(pytz.timezone(timezone))
+                icon_url = icon_base_url + \
+                    forecast.get('weather')[0].get('icon', '01d') + '.png'
+                weather = forecast.get('weather')[0].get('main', 'Unknown')
+                clouds = int(forecast.get('clouds').get('all', 0))
+                # self.slack.send_message('Date/Time: %s (%s)' % (dt_local.strftime(
+                #    "%A, %B %d, %Y %I:%M%p"), dt.strftime("%A, %B %d, %Y %I:%M%p UTC")))
+                dt_string = '%s (%s)' % (dt_local.strftime(
+                    '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
+                #self.slack.send_message('Clouds: %0.1f%%' % clouds)
+                if clouds > 0:
+                    self.slack.send_message(
+                        "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
+                else:
+                    self.slack.send_message(
+                        "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
+                time.sleep(1)  # don't trigger the Slack bandwidth threshold
+        else:
+            self.logger.error(
+                'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
+            self.handle_error(text, e)
+
     # {"clouds": {"all": 1}, "name": "Sonoma", "visibility": 9656,
     # "sys": {"country": "US", "sunset": 1559359588, "message": 0.0116, "type": 1, "id": 5152, "sunrise": 1559306926},
     # "weather": [{"main": "Mist", "id": 701, "icon": "50n", "description": "mist"}],
@@ -157,6 +216,13 @@ class IxchelCommands:
 
     def init_commands(self):
         self.commands = [
+
+            {
+                'regex': r'^\\forecast$',
+                'function': self.forecast,
+                'description': '`\\forecast` shows the hourly weather forecast',
+                'hide': False
+            },
 
             {
                 'regex': r'^\\help$',

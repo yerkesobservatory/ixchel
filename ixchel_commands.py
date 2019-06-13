@@ -70,6 +70,18 @@ class IxchelCommands:
         except Exception as e:
             self.handle_error(text, e)
 
+    def clouds(self, text, user):
+        try:
+            # query telescope
+            outputs = self.telescope.precipitation()
+            # assign values
+            clouds = float(outputs['clouds']['value'])
+            # send output to Slack
+            self.slack.send_message('Cloud cover is %d%%.' % int(clouds*100))
+        except Exception as e:
+            self.handle_error(text, e)
+
+    # https://openweathermap.org/weather-conditions
     def weather(self, text, user):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
@@ -235,6 +247,13 @@ class IxchelCommands:
                 'regex': r'^\\weather$',
                 'function': self.weather,
                 'description': '`\\weather` shows the current weather conditions',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\clouds$',
+                'function': self.clouds,
+                'description': '`\\clouds` shows the current cloud cover',
                 'hide': False
             },
 

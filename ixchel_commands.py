@@ -25,11 +25,12 @@ class IxchelCommands:
     def parse(self, message):
         text = message['text'].strip()
         for cmd in self.commands:
-            if re.search(cmd['regex'], text, re.IGNORECASE):
+            match = re.search(cmd['regex'], text, re.IGNORECASE)
+            if match:
                 user = self.slack.get_user_by_id(message.get('user'))
                 self.logger.debug('Received the command: %s from %s.' % (
                     text, user.get('name')))
-                cmd['function'](text, user)
+                cmd['function'](text, user, match)
                 return
         self.slack.send_message(
             '%s does not recognize your command (%s).' % (self.username, text))
@@ -39,7 +40,7 @@ class IxchelCommands:
             'Command failed (%s). Exception (%s).' % (text, e))
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
-    def help(self, text, user):
+    def get_help(self, text, user, match):
         help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
             '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
         for cmd in self.commands:
@@ -47,10 +48,10 @@ class IxchelCommands:
                 help_message += '>%s\n' % cmd['description']
         self.slack.send_message(help_message)
 
-    def where(self, text, user):
+    def get_where(self, text, user, match):
         try:
             # query telescope
-            outputs = self.telescope.where()
+            outputs = self.telescope.get_where()
             # assign values
             ra = outputs['ra']['value']
             dec = outputs['dec']['value']
@@ -70,10 +71,10 @@ class IxchelCommands:
         except Exception as e:
             self.handle_error(text, e)
 
-    def clouds(self, text, user):
+    def get_clouds(self, text, user, match):
         try:
             # query telescope
-            outputs = self.telescope.precipitation()
+            outputs = self.telescope.get_precipitation()
             # assign values
             clouds = float(outputs['clouds']['value'])
             # send output to Slack
@@ -81,8 +82,31 @@ class IxchelCommands:
         except Exception as e:
             self.handle_error(text, e)
 
+    def get_focus(self, text, user, match):
+        try:
+            # query telescope
+            outputs = self.telescope.get_focus()
+            # assign values
+            pos = int(outputs['pos']['value'])
+            # send output to Slack
+            self.slack.send_message('Focus position is %d.' % pos)
+        except Exception as e:
+            self.handle_error(text, e)
+
+    def set_focus(self, text, user, match):
+        try:
+            pos = int(match.group(1))
+            # query telescope
+            outputs = self.telescope.set_focus(pos)
+            # assign values
+            pos = int(outputs['pos']['value'])
+            # send output to Slack
+            self.slack.send_message('Focus position is %d.' % pos)
+        except Exception as e:
+            self.handle_error(text, e)
+
     # https://openweathermap.org/weather-conditions
-    def weather(self, text, user):
+    def get_weather(self, text, user, cmd):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
         api_key = self.config.get('openweathermap', 'api_key')
@@ -128,7 +152,7 @@ class IxchelCommands:
             self.handle_error(text, e)
 
     # https://openweathermap.org/forecast5
-    def forecast(self, text, user):
+    def get_forecast(self, text, user, cmd):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
         api_key = self.config.get('openweathermap', 'api_key')
@@ -230,36 +254,50 @@ class IxchelCommands:
         self.commands = [
 
             {
+                'regex': r'^\\focus$',
+                'function': self.get_focus,
+                'description': '`\\focus` shows the current focus position',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\focus\s([0-9]+)$',
+                'function': self.set_focus,
+                'description': '`\\focus <integer>` sets the current focus position to <integer>',
+                'hide': False
+            },
+
+            {
                 'regex': r'^\\forecast$',
-                'function': self.forecast,
+                'function': self.get_forecast,
                 'description': '`\\forecast` shows the hourly weather forecast',
                 'hide': False
             },
 
             {
                 'regex': r'^\\help$',
-                'function': self.help,
+                'function': self.get_help,
                 'description': '`\\help` shows this message',
                 'hide': False
             },
 
             {
                 'regex': r'^\\weather$',
-                'function': self.weather,
+                'function': self.get_weather,
                 'description': '`\\weather` shows the current weather conditions',
                 'hide': False
             },
 
             {
                 'regex': r'^\\clouds$',
-                'function': self.clouds,
+                'function': self.get_clouds,
                 'description': '`\\clouds` shows the current cloud cover',
                 'hide': False
             },
 
             {
                 'regex': r'^\\where$',
-                'function': self.where,
+                'function': self.get_where,
                 'description': '`\\where` shows where the telescope is currently pointing',
                 'hide': False
             },

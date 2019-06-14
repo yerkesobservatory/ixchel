@@ -111,7 +111,7 @@ class Telescope:
                     'Command (%s) failed. Exception (%s).')
             return result
 
-    def precipitation(self):
+    def get_precipitation(self):
         # define command and result format
         command_re = 'tx taux'
         outputs = {
@@ -142,7 +142,54 @@ class Telescope:
         # return results
         return outputs
 
-    def where(self):
+    def get_focus(self):
+        # define command and result format
+        command_re = 'tx focus'
+        outputs = {
+            'pos': {
+                're': r'(?<=pos=).*?$',
+                'value': None
+            }
+        }
+        results = self.command(command_re)
+        result = results['stdout'][0]
+        # parse the result
+        for output in outputs.values():
+            match = re.search(output['re'], result)
+            if not match:
+                self.logger.error('%s value is invalid (%s).' %
+                                  (output['name'], output['value']))
+                raise ValueError('%s value is invalid (%s).' %
+                                 (output['name'], output['value']))
+            output['value'] = match.group(0)
+        # return results
+        return outputs
+
+    def set_focus(self, pos):
+        # define command and result format
+        command_re = 'tx focus pos=%d' % pos
+        outputs = {
+            'pos': {
+                're': r'(?<=pos=).*?$',
+                'value': None
+            }
+        }
+        self.logger.debug(command_re)
+        results = self.command(command_re)
+        result = results['stdout'][0]
+        # parse the result
+        for output in outputs.values():
+            match = re.search(output['re'], result)
+            if not match:
+                self.logger.error('%s value is invalid (%s).' %
+                                  (output['name'], output['value']))
+                raise ValueError('%s value is invalid (%s).' %
+                                 (output['name'], output['value']))
+            output['value'] = match.group(0)
+        # return results
+        return outputs
+
+    def get_where(self):
         # define command and result format
         command_re = 'tx where'
         outputs = {

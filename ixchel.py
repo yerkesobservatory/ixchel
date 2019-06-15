@@ -5,7 +5,7 @@ import time
 import datetime
 import json
 import re
-from ixchel_commands import IxchelCommands
+from ixchel_command import IxchelCommand
 from slack import Slack
 from config import Config
 from telescope import Telescope
@@ -44,8 +44,8 @@ class Ixchel:
         self.channel_id = self.slack.get_channel_id(self.channel)
         # the telescope
         self.telescope = telescope
-        # init IxchelCommands
-        self.ixchel_commands = IxchelCommands(
+        # init IxchelCommand
+        self.ixchel_commands = IxchelCommand(
             self.config, self.slack, self.telescope)
 
     def loop(self):

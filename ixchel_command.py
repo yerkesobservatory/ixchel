@@ -6,14 +6,15 @@ import requests
 import time
 import datetime
 import pytz
+from telescope_interface import TelescopeInterface
 
 
-class IxchelCommands:
+class IxchelCommand:
 
     commands = []
 
     def __init__(self, config, slack, telescope):
-        self.logger = logging.getLogger('ixchel.IxchelCommands')
+        self.logger = logging.getLogger('ixchel.IxchelCommand')
         self.config = config
         self.channel = self.config.get('slack', 'channel')
         self.username = self.config.get('slack', 'username')
@@ -73,10 +74,11 @@ class IxchelCommands:
 
     def get_clouds(self, command, user):
         try:
+            telescope_interface = TelescopeInterface('get_precipitation')
             # query telescope
-            outputs = self.telescope.get_precipitation()
+            self.telescope.get_precipitation(telescope_interface)
             # assign values
-            clouds = float(outputs['clouds']['value'])
+            clouds = float(telescope_interface.get_output_value('clouds'))
             # send output to Slack
             self.slack.send_message('Cloud cover is %d%%.' % int(clouds*100))
         except Exception as e:
@@ -109,11 +111,12 @@ class IxchelCommands:
         try:
             # query telescope
             outputs = self.telescope.get_lock()
+            self.logger.debug(outputs)
             # assign values
-            email = int(outputs['email']['value'])
+            user = outputs['user']['value']
             # send output to Slack
             self.slack.send_message(
-                'Telescope is currently locked by %s.' % email)
+                'Telescope is currently locked by %s.' % user)
         except Exception as e:
             self.handle_error(command.group(0), e)
 

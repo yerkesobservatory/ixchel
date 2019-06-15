@@ -2,6 +2,7 @@ import logging
 import paramiko
 import subprocess
 import re
+from telescope_interface import TelescopeInterface
 
 
 class SSH:
@@ -111,36 +112,24 @@ class Telescope:
                     'Command (%s) failed. Exception (%s).')
             return result
 
-    def get_precipitation(self):
-        # define command and result format
-        command_re = 'tx taux'
-        outputs = {
-            'clouds': {
-                're': r'(?<=cloud=).*?(?= )',
-                'value': None
-            },
-            'rain': {
-                're': r'(?<=rain=).*?(?= )',
-                'value': None
-            },
-            'dew': {
-                're': r'(?<=dew=).*?$',
-                'value': None
-            }
-        }
-        results = self.command(command_re)
+    def get_precipitation(self, interface):
+        results = self.command(interface.get_command())
         result = results['stdout'][0]
         # parse the result
-        for output_key, output_value in outputs.items():
-            match = re.search(output_value['re'], result)
-            if not match:
-                self.logger.error('%s value is invalid (%s).' %
-                                  (output_key, output_value['value']))
-                raise ValueError('%s value is invalid (%s).' %
-                                 (output_key, output_value['value']))
-            output_value['value'] = match.group(0)
-        # return results
-        return outputs
+        for key in interface.get_outputs():
+            self.logger.debug(key)
+            match = re.search(interface.get_output_regex(key), result)
+            if match:
+                interface.set_output_value(key, match.group(0))
+            else:
+                if interface.is_output_optional(key):
+                    self.logger.debug(
+                        '%s value is missing (but optional).' % output_key)
+                else:
+                    self.logger.error('%s value is missing or invalid (%s).' %
+                                      (key, interface.get_output_value(key)))
+                    raise ValueError('%s value is missing or invalid (%s).' %
+                                     (key, interface.get_output_value(key)))
 
     def get_focus(self):
         # define command and result format
@@ -156,12 +145,17 @@ class Telescope:
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)
-            if not match:
-                self.logger.error('%s value is invalid (%s).' %
-                                  (output_key, output_value['value']))
-                raise ValueError('%s value is invalid (%s).' %
-                                 (output_key, output_value['value']))
-            output_value['value'] = match.group(0)
+            if match:
+                output_value['value'] = match.group(0)
+            else:
+                if output_value.get('optional', False):
+                    self.logger.debug(
+                        '%s value is missing (but optional).' % output_key)
+                else:
+                    self.logger.error('%s value is missing or invalid (%s).' %
+                                      (output_key, output_value['value']))
+                    raise ValueError('%s value is missing or invalid (%s).' %
+                                     (output_key, output_value['value']))
         # return results
         return outputs
 
@@ -180,12 +174,17 @@ class Telescope:
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)
-            if not match:
-                self.logger.error('%s value is invalid (%s).' %
-                                  (output_key, output_value['value']))
-                raise ValueError('%s value is invalid (%s).' %
-                                 (output_key, output_value['value']))
-            output_value['value'] = match.group(0)
+            if match:
+                output_value['value'] = match.group(0)
+            else:
+                if output_value.get('optional', False):
+                    self.logger.debug(
+                        '%s value is missing (but optional).' % output_key)
+                else:
+                    self.logger.error('%s value is missing or invalid (%s).' %
+                                      (output_key, output_value['value']))
+                    raise ValueError('%s value is missing or invalid (%s).' %
+                                     (output_key, output_value['value']))
         # return results
         return outputs
 
@@ -196,23 +195,28 @@ class Telescope:
         outputs = {
             'user': {
                 're': r'(?<=user=).*?(?= )',
-                'value': None
+                'value': None,
+                'optional': True
             },
             'email': {
                 're': r'(?<=email=).*?(?= )',
-                'value': None
+                'value': None,
+                'optional': True
             },
-            #            'phone': {
-            #                're': r'(?<=phone=).*?(?= )',
-            #                'value': None
-            #            },
-            #            'comment': {
-            #                're': r'(?<=comment=).*?(?= )',
-            #                'value': None
-            #            },
+            'phone': {
+                're': r'(?<=phone=).*?(?= )',
+                'value': None,
+                'optional': True
+            },
+            'comment': {
+                're': r'(?<=comment=).*?(?= )',
+                'value': None,
+                'optional': True
+            },
             'timestamp': {
                 're': r'(?<=timestamp=).*?$',
-                'value': None
+                'value': None,
+                'optional': True
             }
         }
         results = self.command(command_re)
@@ -220,12 +224,17 @@ class Telescope:
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)
-            if not match:
-                self.logger.error('%s value is invalid (%s).' %
-                                  (output_key, output_value['value']))
-                raise ValueError('%s value is invalid (%s).' %
-                                 (output_key, output_value['value']))
-            output_value['value'] = match.group(0)
+            if match:
+                output_value['value'] = match.group(0)
+            else:
+                if output_value.get('optional', False):
+                    self.logger.debug(
+                        '%s value is missing (but optional).' % output_key)
+                else:
+                    self.logger.error('%s value is missing or invalid (%s).' %
+                                      (output_key, output_value['value']))
+                    raise ValueError('%s value is missing or invalid (%s).' %
+                                     (output_key, output_value['value']))
         # return results
         return outputs
 
@@ -259,12 +268,17 @@ class Telescope:
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)
-            if not match:
-                self.logger.error('%s value is invalid (%s).' %
-                                  (output_key, output_value['value']))
-                raise ValueError('%s value is invalid (%s).' %
-                                 (output_key, output_value['value']))
-            output_value['value'] = match.group(0)
+            if match:
+                output_value['value'] = match.group(0)
+            else:
+                if output_value.get('optional', False):
+                    self.logger.debug(
+                        '%s value is missing (but optional).' % output_key)
+                else:
+                    self.logger.error('%s value is missing or invalid (%s).' %
+                                      (output_key, output_value['value']))
+                    raise ValueError('%s value is missing or invalid (%s).' %
+                                     (output_key, output_value['value']))
         # return results
         return outputs
 

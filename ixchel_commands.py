@@ -25,12 +25,12 @@ class IxchelCommands:
     def parse(self, message):
         text = message['text'].strip()
         for cmd in self.commands:
-            match = re.search(cmd['regex'], text, re.IGNORECASE)
-            if match:
+            command = re.search(cmd['regex'], text, re.IGNORECASE)
+            if command:
                 user = self.slack.get_user_by_id(message.get('user'))
                 self.logger.debug('Received the command: %s from %s.' % (
-                    text, user.get('name')))
-                cmd['function'](text, user, match)
+                    command.group(0), user.get('name')))
+                cmd['function'](command, user)
                 return
         self.slack.send_message(
             '%s does not recognize your command (%s).' % (self.username, text))
@@ -40,7 +40,7 @@ class IxchelCommands:
             'Command failed (%s). Exception (%s).' % (text, e))
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
-    def get_help(self, text, user, match):
+    def get_help(self, command, user):
         help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
             '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
         for cmd in self.commands:
@@ -48,7 +48,7 @@ class IxchelCommands:
                 help_message += '>%s\n' % cmd['description']
         self.slack.send_message(help_message)
 
-    def get_where(self, text, user, match):
+    def get_where(self, command, user):
         try:
             # query telescope
             outputs = self.telescope.get_where()
@@ -69,9 +69,9 @@ class IxchelCommands:
             else:
                 self.slack.send_message('>Slewing? No')
         except Exception as e:
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
 
-    def get_clouds(self, text, user, match):
+    def get_clouds(self, command, user):
         try:
             # query telescope
             outputs = self.telescope.get_precipitation()
@@ -80,9 +80,9 @@ class IxchelCommands:
             # send output to Slack
             self.slack.send_message('Cloud cover is %d%%.' % int(clouds*100))
         except Exception as e:
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
 
-    def get_focus(self, text, user, match):
+    def get_focus(self, command, user):
         try:
             # query telescope
             outputs = self.telescope.get_focus()
@@ -91,11 +91,11 @@ class IxchelCommands:
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
 
-    def set_focus(self, text, user, match):
+    def set_focus(self, command, user):
         try:
-            pos = int(match.group(1))
+            pos = int(command.group(1))
             # query telescope
             outputs = self.telescope.set_focus(pos)
             # assign values
@@ -103,10 +103,22 @@ class IxchelCommands:
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
+
+    def get_lock(self, command, user):
+        try:
+            # query telescope
+            outputs = self.telescope.get_lock()
+            # assign values
+            email = int(outputs['email']['value'])
+            # send output to Slack
+            self.slack.send_message(
+                'Telescope is currently locked by %s.' % email)
+        except Exception as e:
+            self.handle_error(command.group(0), e)
 
     # https://openweathermap.org/weather-conditions
-    def get_weather(self, text, user, cmd):
+    def get_weather(self, command, user):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
         api_key = self.config.get('openweathermap', 'api_key')
@@ -120,7 +132,7 @@ class IxchelCommands:
         except Exception as e:
             self.logger.error(
                 'OpenWeatherMap API request (%s) failed.' % url)
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
             return
         if r.ok:
             data = r.json()
@@ -149,10 +161,10 @@ class IxchelCommands:
         else:
             self.logger.error(
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
 
     # https://openweathermap.org/forecast5
-    def get_forecast(self, text, user, cmd):
+    def get_forecast(self, command, user):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
         api_key = self.config.get('openweathermap', 'api_key')
@@ -169,7 +181,7 @@ class IxchelCommands:
         except Exception as e:
             self.logger.error(
                 'OpenWeatherMap API request (%s) failed.' % url)
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
             return
         if r.ok:
             data = r.json()
@@ -200,7 +212,7 @@ class IxchelCommands:
         else:
             self.logger.error(
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
-            self.handle_error(text, e)
+            self.handle_error(command.group(0), e)
 
     # {"clouds": {"all": 1}, "name": "Sonoma", "visibility": 9656,
     # "sys": {"country": "US", "sunset": 1559359588, "message": 0.0116, "type": 1, "id": 5152, "sunrise": 1559306926},
@@ -220,15 +232,6 @@ class IxchelCommands:
     # send_message("\n")
 
 # send_message(user_name + ', here are some helpful tips:\n' +
-#                 '>Please report itzamna issues here: https://github.com/mcnowinski/seo/issues/new\n' +
-#                 '>A more detailed itzamna tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' +
-#                 '>`\\help` shows this message\n' +
-#                 '>`\\where` shows where the telescope is pointing\n' +
-#                 '>`\\weather` shows the current weather conditions\n' +
-#                 '>`\\forecast` shows the hourly weather forecast\n' +
-#                 '>`\\clouds` shows the current cloud cover\n' +
-#                 '>`\\focus` shows the current focus position\n' +
-#                 '>`\\focus <position>` sets the current focus position\n' + \
 #                 # '>`\\stats` shows the weekly telescope statistics\n' + \
 #                 '>`\\clearsky` shows the Clear Sky chart(s)\n' + \
 #                 '>`\\skycam` shows nearby skycam images\n' + \
@@ -278,6 +281,13 @@ class IxchelCommands:
                 'regex': r'^\\help$',
                 'function': self.get_help,
                 'description': '`\\help` shows this message',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\lock$',
+                'function': self.get_lock,
+                'description': '`\\lock` locks the telescope for use',
                 'hide': False
             },
 

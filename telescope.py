@@ -131,14 +131,14 @@ class Telescope:
         results = self.command(command_re)
         result = results['stdout'][0]
         # parse the result
-        for output in outputs.values():
-            match = re.search(output['re'], result)
+        for output_key, output_value in outputs.items():
+            match = re.search(output_value['re'], result)
             if not match:
                 self.logger.error('%s value is invalid (%s).' %
-                                  (output['name'], output['value']))
+                                  (output_key, output_value['value']))
                 raise ValueError('%s value is invalid (%s).' %
-                                 (output['name'], output['value']))
-            output['value'] = match.group(0)
+                                 (output_key, output_value['value']))
+            output_value['value'] = match.group(0)
         # return results
         return outputs
 
@@ -154,14 +154,14 @@ class Telescope:
         results = self.command(command_re)
         result = results['stdout'][0]
         # parse the result
-        for output in outputs.values():
-            match = re.search(output['re'], result)
+        for output_key, output_value in outputs.items():
+            match = re.search(output_value['re'], result)
             if not match:
                 self.logger.error('%s value is invalid (%s).' %
-                                  (output['name'], output['value']))
+                                  (output_key, output_value['value']))
                 raise ValueError('%s value is invalid (%s).' %
-                                 (output['name'], output['value']))
-            output['value'] = match.group(0)
+                                 (output_key, output_value['value']))
+            output_value['value'] = match.group(0)
         # return results
         return outputs
 
@@ -178,14 +178,54 @@ class Telescope:
         results = self.command(command_re)
         result = results['stdout'][0]
         # parse the result
-        for output in outputs.values():
-            match = re.search(output['re'], result)
+        for output_key, output_value in outputs.items():
+            match = re.search(output_value['re'], result)
             if not match:
                 self.logger.error('%s value is invalid (%s).' %
-                                  (output['name'], output['value']))
+                                  (output_key, output_value['value']))
                 raise ValueError('%s value is invalid (%s).' %
-                                 (output['name'], output['value']))
-            output['value'] = match.group(0)
+                                 (output_key, output_value['value']))
+            output_value['value'] = match.group(0)
+        # return results
+        return outputs
+
+    def get_lock(self):
+        # done lock user=mcnowinski email=mcnowinski@gmail.com phone=7032869140 comment=slac timestamp=2017-02-10T20:32:03Z
+        # define command and result format
+        command_re = 'tx lock'
+        outputs = {
+            'user': {
+                're': r'(?<=user=).*?(?= )',
+                'value': None
+            },
+            'email': {
+                're': r'(?<=email=).*?(?= )',
+                'value': None
+            },
+            #            'phone': {
+            #                're': r'(?<=phone=).*?(?= )',
+            #                'value': None
+            #            },
+            #            'comment': {
+            #                're': r'(?<=comment=).*?(?= )',
+            #                'value': None
+            #            },
+            'timestamp': {
+                're': r'(?<=timestamp=).*?$',
+                'value': None
+            }
+        }
+        results = self.command(command_re)
+        result = results['stdout'][0]
+        # parse the result
+        for output_key, output_value in outputs.items():
+            match = re.search(output_value['re'], result)
+            if not match:
+                self.logger.error('%s value is invalid (%s).' %
+                                  (output_key, output_value['value']))
+                raise ValueError('%s value is invalid (%s).' %
+                                 (output_key, output_value['value']))
+            output_value['value'] = match.group(0)
         # return results
         return outputs
 
@@ -217,14 +257,14 @@ class Telescope:
         results = self.command(command_re)
         result = results['stdout'][0]
         # parse the result
-        for output in outputs.values():
-            match = re.search(output['re'], result)
+        for output_key, output_value in outputs.items():
+            match = re.search(output_value['re'], result)
             if not match:
                 self.logger.error('%s value is invalid (%s).' %
-                                  (output['name'], output['value']))
+                                  (output_key, output_value['value']))
                 raise ValueError('%s value is invalid (%s).' %
-                                 (output['name'], output['value']))
-            output['value'] = match.group(0)
+                                 (output_key, output_value['value']))
+            output_value['value'] = match.group(0)
         # return results
         return outputs
 

@@ -83,7 +83,7 @@ class Ixchel:
                     else:  # message posted directly to bot
                         self.logger.debug('Received direct message.')
                         self.slack.send_message('Please use the channel #%s for communications with %s.' % (
-                            self.channel, self.username), message['channel'], self.username)
+                            self.channel, self.username), None, message['channel'], self.username)
             elif message['type'] == 'pong':
                 self.logger.debug('Received pong message.')
             else:

@@ -29,6 +29,7 @@ class SSH:
 
     def command(self, command):
         result = {
+            'response': None,
             'stdout': [],
             'stderr': []
         }
@@ -36,6 +37,16 @@ class SSH:
             stdin, stdout, stderr = self.ssh.exec_command(command)
             result['stdout'] = stdout.readlines()
             result['stderr'] = stderr.readlines()
+            if len(result['stdout']) > 0:
+                result['response'] = result['stdout'][0]
+            elif len(result['stderr']) > 0:
+                result['response'] = result['stderr'][0]
+                self.logger.error('Command (%s) returned error (%s).' % (
+                    command, result['response']))
+            else:
+                result['response'] = 'Invalid response.'
+                self.logger.error(
+                    'Command (%s) returned invalid response.' % (command))
         except Exception as e:
             self.logger.error(
                 'SSH command failed. Exception (%s).' % e.message)
@@ -114,12 +125,12 @@ class Telescope:
 
     def get_precipitation(self, interface):
         results = self.command(interface.get_command())
-        result = results['stdout'][0]
+        result = results['response']
         # parse the result
         for key in interface.get_outputs():
-            self.logger.debug(key)
             match = re.search(interface.get_output_regex(key), result)
             if match:
+                self.logger.debug(key)
                 interface.set_output_value(key, match.group(0))
             else:
                 if interface.is_output_optional(key):
@@ -141,7 +152,7 @@ class Telescope:
             }
         }
         results = self.command(command_re)
-        result = results['stdout'][0]
+        result = results['response']
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)
@@ -170,7 +181,7 @@ class Telescope:
         }
         self.logger.debug(command_re)
         results = self.command(command_re)
-        result = results['stdout'][0]
+        result = results['response']
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)
@@ -220,7 +231,7 @@ class Telescope:
             }
         }
         results = self.command(command_re)
-        result = results['stdout'][0]
+        result = results['response']
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)
@@ -264,7 +275,7 @@ class Telescope:
             }
         }
         results = self.command(command_re)
-        result = results['stdout'][0]
+        result = results['response']
         # parse the result
         for output_key, output_value in outputs.items():
             match = re.search(output_value['re'], result)

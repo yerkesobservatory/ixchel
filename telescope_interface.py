@@ -62,7 +62,8 @@ class TelescopeInterface:
         if name in self.command['outputs']:
             return self.command['outputs'][name].get('optional', False)
         else:
-            self.logger.error('Command output (%s) optional not found.' % name)
+            self.logger.error(
+                'Command output (%s) is_optional not found.' % name)
             return False
 
     def set_output_value(self, name, value):

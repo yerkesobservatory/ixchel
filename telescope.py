@@ -135,34 +135,12 @@ class Telescope:
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
-    def set_focus(self, pos):
-        # define command and result format
-        command_re = 'tx focus pos=%d' % pos
-        outputs = {
-            'pos': {
-                're': r'(?<=pos=).*?$',
-                'value': None
-            }
-        }
-        self.logger.debug(command_re)
-        results = self.command(command_re)
+    def set_focus(self, interface):
+        command = interface.assign_inputs()
+        results = self.command(interface.get_command())
         result = results['response']
-        # parse the result
-        for output_key, output_value in outputs.items():
-            match = re.search(output_value['re'], result)
-            if match:
-                output_value['value'] = match.group(0)
-            else:
-                if output_value.get('optional', False):
-                    self.logger.debug(
-                        '%s value is missing (but optional).' % output_key)
-                else:
-                    self.logger.error('%s value is missing or invalid (%s).' %
-                                      (output_key, output_value['value']))
-                    raise ValueError('%s value is missing or invalid (%s).' %
-                                     (output_key, output_value['value']))
-        # return results
-        return outputs
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
 
     def get_lock(self, interface):
         results = self.command(interface.get_command())
@@ -170,7 +148,7 @@ class Telescope:
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
-    def get_where(self):
+    def get_where(self, interface):
         results = self.command(interface.get_command())
         result = results['response']
         # parse the result and assign values to output valuse

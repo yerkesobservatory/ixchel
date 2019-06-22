@@ -34,6 +34,21 @@ telescope_interfaces = {
             }
         }
     },
+    'set_focus': {
+        'command': 'tx focus pos={pos}',
+        'inputs': {
+            'pos': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'pos': {
+                'regex': r'(?<=pos=).*?$',
+                'value': None,
+                'type': int
+            }
+        }
+    },
     'get_lock': {
         'command': r'tx lock',
         'inputs': {},
@@ -168,7 +183,7 @@ class TelescopeInterface:
             raise ValueError('Output (%s) not found.' % name)
 
     # get input value by name
-    def get_input(self, name):
+    def get_input_value(self, name):
         if name in self.command['inputs']:
             return self.command['inputs'][name]['value']
         else:
@@ -176,7 +191,7 @@ class TelescopeInterface:
             return None
 
     # set input value by name
-    def set_input(self, name, value):
+    def set_input_value(self, name, value):
         if name in self.command['inputs']:
             self.command['inputs'][name]['value'] = value
         else:
@@ -198,3 +213,11 @@ class TelescopeInterface:
                                       (key, self.get_output_value(key)))
                     raise ValueError('%s value is missing or invalid (%s).' %
                                      (key, self.get_output_value(key)))
+
+    # parse result and assign output values
+    def assign_inputs(self):
+        inputs = dict()
+        for key in self.get_input_keys():
+            inputs[key] = self.get_input_value(key)
+        # self.logger.debug(inputs)
+        return self.get_command().format(**inputs)

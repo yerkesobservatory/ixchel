@@ -99,11 +99,12 @@ class IxchelCommand:
 
     def set_focus(self, command, user):
         try:
-            pos = int(command.group(1))
-            # query telescope
-            outputs = self.telescope.set_focus(pos)
+            telescope_interface = TelescopeInterface('set_focus')
             # assign values
-            pos = int(outputs['pos']['value'])
+            pos = int(command.group(1))
+            telescope_interface.set_input_value('pos', pos)
+            # create a command that applies the specified values
+            self.telescope.set_focus(telescope_interface)
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:

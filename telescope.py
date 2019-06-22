@@ -123,75 +123,17 @@ class Telescope:
                     'Command (%s) failed. Exception (%s).')
             return result
 
-    # this puts everything in one function, but not really what the
-    # interface is supposed to do...
-    # def get_command_output(self, interface):
-    #     results = self.command(interface.get_command())
-    #     result = results['response']
-    #     # parse the result
-    #     for key in interface.get_output_keys():
-    #         match = re.search(interface.get_output_regex(key), result)
-    #         if match:
-    #             self.logger.debug(key)
-    #             interface.set_output_value(key, match.group(0))
-    #         else:
-    #             if interface.is_output_optional(key):
-    #                 self.logger.debug(
-    #                     '%s value is missing (but optional).' % output_key)
-    #             else:
-    #                 self.logger.error('%s value is missing or invalid (%s).' %
-    #                                   (key, interface.get_output_value(key)))
-    #                 raise ValueError('%s value is missing or invalid (%s).' %
-    #                                  (key, interface.get_output_value(key)))
-
-    # def get_command_outputs(self, result, interface):
-    #     for key in interface.get_output_keys():
-    #         match = re.search(interface.get_output_regex(key), result)
-    #         if match:
-    #             interface.set_output_value(key, match.group(1))
-    #         else:
-    #             if interface.is_output_optional(key):
-    #                 self.logger.debug(
-    #                     '%s value is missing (but optional).' % output_key)
-    #             else:
-    #                 self.logger.error('%s value is missing or invalid (%s).' %
-    #                                   (key, interface.get_output_value(key)))
-    #                 raise ValueError('%s value is missing or invalid (%s).' %
-    #                                  (key, interface.get_output_value(key)))
-
     def get_precipitation(self, interface):
         results = self.command(interface.get_command())
         result = results['response']
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
-    def get_focus(self):
-        # define command and result format
-        command_re = 'tx focus'
-        outputs = {
-            'pos': {
-                're': r'(?<=pos=).*?$',
-                'value': None
-            }
-        }
-        results = self.command(command_re)
+    def get_focus(self, interface):
+        results = self.command(interface.get_command())
         result = results['response']
-        # parse the result
-        for output_key, output_value in outputs.items():
-            match = re.search(output_value['re'], result)
-            if match:
-                output_value['value'] = match.group(0)
-            else:
-                if output_value.get('optional', False):
-                    self.logger.debug(
-                        '%s value is missing (but optional).' % output_key)
-                else:
-                    self.logger.error('%s value is missing or invalid (%s).' %
-                                      (output_key, output_value['value']))
-                    raise ValueError('%s value is missing or invalid (%s).' %
-                                     (output_key, output_value['value']))
-        # return results
-        return outputs
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
 
     def set_focus(self, pos):
         # define command and result format
@@ -222,100 +164,17 @@ class Telescope:
         # return results
         return outputs
 
-    def get_lock(self):
-        # done lock user=mcnowinski email=mcnowinski@gmail.com phone=7032869140 comment=slac timestamp=2017-02-10T20:32:03Z
-        # define command and result format
-        command_re = 'tx lock'
-        outputs = {
-            'user': {
-                're': r'(?<=user=).*?(?= )',
-                'value': None,
-                'optional': True
-            },
-            'email': {
-                're': r'(?<=email=).*?(?= )',
-                'value': None,
-                'optional': True
-            },
-            'phone': {
-                're': r'(?<=phone=).*?(?= )',
-                'value': None,
-                'optional': True
-            },
-            'comment': {
-                're': r'(?<=comment=).*?(?= )',
-                'value': None,
-                'optional': True
-            },
-            'timestamp': {
-                're': r'(?<=timestamp=).*?$',
-                'value': None,
-                'optional': True
-            }
-        }
-        results = self.command(command_re)
+    def get_lock(self, interface):
+        results = self.command(interface.get_command())
         result = results['response']
-        # parse the result
-        for output_key, output_value in outputs.items():
-            match = re.search(output_value['re'], result)
-            if match:
-                output_value['value'] = match.group(0)
-            else:
-                if output_value.get('optional', False):
-                    self.logger.debug(
-                        '%s value is missing (but optional).' % output_key)
-                else:
-                    self.logger.error('%s value is missing or invalid (%s).' %
-                                      (output_key, output_value['value']))
-                    raise ValueError('%s value is missing or invalid (%s).' %
-                                     (output_key, output_value['value']))
-        # return results
-        return outputs
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
 
     def get_where(self):
-        # define command and result format
-        command_re = 'tx where'
-        outputs = {
-            'ra': {
-                're': r'(?<=ra=).*?(?= )',
-                'value': None
-            },
-            'dec': {
-                're': r'(?<=dec=).*?(?= )',
-                'value': None
-            },
-            'alt': {
-                're': r'(?<=alt=).*?(?= )',
-                'value': None
-            },
-            'az': {
-                're': r'(?<=az=).*?(?= )',
-                'value': None
-            },
-            'slewing': {
-                're': r'(?<=slewing=).*?$',
-                'value': None
-            }
-        }
-        results = self.command(command_re)
+        results = self.command(interface.get_command())
         result = results['response']
-        # parse the result
-        for output_key, output_value in outputs.items():
-            match = re.search(output_value['re'], result)
-            if match:
-                output_value['value'] = match.group(0)
-            else:
-                if output_value.get('optional', False):
-                    self.logger.debug(
-                        '%s value is missing (but optional).' % output_key)
-                else:
-                    self.logger.error('%s value is missing or invalid (%s).' %
-                                      (output_key, output_value['value']))
-                    raise ValueError('%s value is missing or invalid (%s).' %
-                                     (output_key, output_value['value']))
-        # return results
-        return outputs
-
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
 
 # import os
 # import re

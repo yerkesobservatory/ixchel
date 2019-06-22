@@ -8,18 +8,99 @@ telescope_interfaces = {
         'outputs': {
             'clouds': {
                 'regex': r'(?<=cloud=).*?(?= )',
-                'value': None
+                'value': None,
+                'type': float
             },
             'rain': {
                 'regex': r'(?<=rain=).*?(?= )',
-                'value': None
+                'value': None,
+                'type': float
             },
             'dew': {
                 'regex': r'(?<=dew=).*?$',
-                'value': None
+                'value': None,
+                'type': float
             }
         }
-    }
+    },
+    'get_focus': {
+        'command': r'tx focus',
+        'inputs': {},
+        'outputs': {
+            'pos': {
+                'regex': r'(?<=pos=).*?$',
+                'value': None,
+                'type': int
+            }
+        }
+    },
+    'get_lock': {
+        'command': r'tx lock',
+        'inputs': {},
+        'outputs': {
+            'user': {
+                'regex': r'(?<=user=).*?(?= )',
+                'value': None,
+                'optional': True,
+                'type': str
+            },
+            'email': {
+                'regex': r'(?<=email=).*?(?= )',
+                'value': None,
+                'optional': True,
+                'type': str
+            },
+            'phone': {
+                'regex': r'(?<=phone=).*?(?= )',
+                'value': None,
+                'optional': True,
+                'type': str
+            },
+            'comment': {
+                'regex': r'(?<=comment=).*?(?= )',
+                'value': None,
+                'optional': True,
+                'type': str
+            },
+            'timestamp': {
+                'regex': r'(?<=timestamp=).*?$',
+                'value': None,
+                'optional': True,
+                'type': str
+            }
+        }
+    },
+    'get_where': {
+        'command': r'tx where',
+        'inputs': {},
+        'outputs': {
+            'ra': {
+                'regex': r'(?<=ra=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            'dec': {
+                'regex': r'(?<=dec=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            'alt': {
+                'regex': r'(?<=alt=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'az': {
+                'regex': r'(?<=az=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'slewing': {
+                'regex': r'(?<=slewing=).*?$',
+                'value': None,
+                'type': int
+            }
+        }
+    },
 }
 
 
@@ -52,7 +133,11 @@ class TelescopeInterface:
     # get output value by name
     def get_output_value(self, name):
         if name in self.command['outputs']:
-            return self.command['outputs'][name]['value']
+            try:
+                return self.command['outputs'][name]['type'](self.command['outputs'][name]['value'])
+            except Exception as e:
+                self.logger.error('Command output conversion (%s) failed.' %
+                                  self.command['outputs'][name]['type'])
         else:
             self.logger.error('Command output (%s) value not found.' % name)
             return None

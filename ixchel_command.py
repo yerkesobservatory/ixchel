@@ -51,20 +51,21 @@ class IxchelCommand:
 
     def get_where(self, command, user):
         try:
+            telescope_interface = TelescopeInterface('get_where')
             # query telescope
-            outputs = self.telescope.get_where()
+            self.telescope.get_precipitation(telescope_interface)
             # assign values
-            ra = outputs['ra']['value']
-            dec = outputs['dec']['value']
-            alt = outputs['alt']['value']
-            az = outputs['az']['value']
-            slewing = int(outputs['slewing']['value'])
+            ra = telescope_interface.get_output_value('ra')
+            dec = telescope_interface.get_output_value('dec')
+            alt = telescope_interface.get_output_value('alt')
+            az = telescope_interface.get_output_value('az')
+            slewing = telescope_interface.get_output_value('slewing')
             # send output to Slack
             self.slack.send_message('Telescope Pointing:')
             self.slack.send_message('>RA: %s' % ra)
             self.slack.send_message('>DEC: %s' % dec)
-            self.slack.send_message(u'>Alt: %s°' % alt)
-            self.slack.send_message(u'>Az: %s°' % az)
+            self.slack.send_message(u'>Alt: %.1f°' % alt)
+            self.slack.send_message(u'>Az: %.1f°' % az)
             if slewing == 1:
                 self.slack.send_message('>Slewing? Yes')
             else:
@@ -78,10 +79,7 @@ class IxchelCommand:
             # query telescope
             self.telescope.get_precipitation(telescope_interface)
             # assign values
-            clouds = float(telescope_interface.get_output_value('clouds'))
-            # no negative cloud cover
-            if clouds < 0:
-                clouds = 0.
+            clouds = telescope_interface.get_output_value('clouds')
             # send output to Slack
             self.slack.send_message('Cloud cover is %d%%.' % int(clouds*100))
         except Exception as e:
@@ -89,10 +87,11 @@ class IxchelCommand:
 
     def get_focus(self, command, user):
         try:
+            telescope_interface = TelescopeInterface('get_focus')
             # query telescope
-            outputs = self.telescope.get_focus()
+            self.telescope.get_precipitation(telescope_interface)
             # assign values
-            pos = int(outputs['pos']['value'])
+            pos = telescope_interface.get_output_value('pos')
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
@@ -112,11 +111,11 @@ class IxchelCommand:
 
     def get_lock(self, command, user):
         try:
+            telescope_interface = TelescopeInterface('get_lock')
             # query telescope
-            outputs = self.telescope.get_lock()
-            self.logger.debug(outputs)
+            self.telescope.get_precipitation(telescope_interface)
             # assign values
-            user = outputs['user']['value']
+            user = telescope_interface.get_output_value('user')
             # send output to Slack
             self.slack.send_message(
                 'Telescope is currently locked by %s.' % user)
@@ -219,23 +218,6 @@ class IxchelCommand:
             self.logger.error(
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
             self.handle_error(command.group(0), e)
-
-    # {"clouds": {"all": 1}, "name": "Sonoma", "visibility": 9656,
-    # "sys": {"country": "US", "sunset": 1559359588, "message": 0.0116, "type": 1, "id": 5152, "sunrise": 1559306926},
-    # "weather": [{"main": "Mist", "id": 701, "icon": "50n", "description": "mist"}],
-    # "coord": {"lat": 38.26, "lon": -122.44},
-    # "base": "stations", "timezone": -25200, "dt": 1559359487,
-    # "main": {"pressure": 1011, "temp_min": 285.15, "temp_max": 300.15, "temp": 292.59, "humidity": 100},
-    # "id": 5397095, "wind": {"speed": 2.6, "deg": 320}, "cod": 200}
-    # send_message("", [{"image_url": "%s" %
-    #                    icon_url, "title": "Current Weather:"}])
-    # send_message(">%s" % (last_update))
-    # send_message(">Conditions: %s" % (weather))
-    # send_message(">Temperature: %s" % (temp))
-    # send_message(">Winds: %s" % (wind))
-    # send_message(">Humidity: %s" % (rh))
-    # send_message(">Local Station: %s (%s)" % (location, station))
-    # send_message("\n")
 
 # send_message(user_name + ', here are some helpful tips:\n' +
 #                 # '>`\\stats` shows the weekly telescope statistics\n' + \

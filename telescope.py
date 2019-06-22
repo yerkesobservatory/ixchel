@@ -123,24 +123,47 @@ class Telescope:
                     'Command (%s) failed. Exception (%s).')
             return result
 
+    # this puts everything in one function, but not really what the
+    # interface is supposed to do...
+    # def get_command_output(self, interface):
+    #     results = self.command(interface.get_command())
+    #     result = results['response']
+    #     # parse the result
+    #     for key in interface.get_output_keys():
+    #         match = re.search(interface.get_output_regex(key), result)
+    #         if match:
+    #             self.logger.debug(key)
+    #             interface.set_output_value(key, match.group(0))
+    #         else:
+    #             if interface.is_output_optional(key):
+    #                 self.logger.debug(
+    #                     '%s value is missing (but optional).' % output_key)
+    #             else:
+    #                 self.logger.error('%s value is missing or invalid (%s).' %
+    #                                   (key, interface.get_output_value(key)))
+    #                 raise ValueError('%s value is missing or invalid (%s).' %
+    #                                  (key, interface.get_output_value(key)))
+
+    # def get_command_outputs(self, result, interface):
+    #     for key in interface.get_output_keys():
+    #         match = re.search(interface.get_output_regex(key), result)
+    #         if match:
+    #             interface.set_output_value(key, match.group(1))
+    #         else:
+    #             if interface.is_output_optional(key):
+    #                 self.logger.debug(
+    #                     '%s value is missing (but optional).' % output_key)
+    #             else:
+    #                 self.logger.error('%s value is missing or invalid (%s).' %
+    #                                   (key, interface.get_output_value(key)))
+    #                 raise ValueError('%s value is missing or invalid (%s).' %
+    #                                  (key, interface.get_output_value(key)))
+
     def get_precipitation(self, interface):
         results = self.command(interface.get_command())
         result = results['response']
-        # parse the result
-        for key in interface.get_outputs():
-            match = re.search(interface.get_output_regex(key), result)
-            if match:
-                self.logger.debug(key)
-                interface.set_output_value(key, match.group(0))
-            else:
-                if interface.is_output_optional(key):
-                    self.logger.debug(
-                        '%s value is missing (but optional).' % output_key)
-                else:
-                    self.logger.error('%s value is missing or invalid (%s).' %
-                                      (key, interface.get_output_value(key)))
-                    raise ValueError('%s value is missing or invalid (%s).' %
-                                     (key, interface.get_output_value(key)))
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
 
     def get_focus(self):
         # define command and result format

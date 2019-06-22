@@ -79,6 +79,9 @@ class IxchelCommand:
             self.telescope.get_precipitation(telescope_interface)
             # assign values
             clouds = float(telescope_interface.get_output_value('clouds'))
+            # no negative cloud cover
+            if clouds < 0:
+                clouds = 0.
             # send output to Slack
             self.slack.send_message('Cloud cover is %d%%.' % int(clouds*100))
         except Exception as e:

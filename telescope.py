@@ -137,13 +137,20 @@ class Telescope:
 
     def set_focus(self, interface):
         command = interface.assign_inputs()
-        results = self.command(interface.get_command())
+        results = self.command(command)
         result = results['response']
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
     def get_lock(self, interface):
         results = self.command(interface.get_command())
+        result = results['response']
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
+
+    def set_lock(self, interface):
+        command = interface.assign_inputs()
+        results = self.command(command)
         result = results['response']
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)

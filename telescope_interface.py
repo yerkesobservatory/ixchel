@@ -85,6 +85,46 @@ telescope_interfaces = {
             }
         }
     },
+    'set_lock': {
+        'command': 'tx lock user={user}',
+        'inputs': {
+            'user': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'user': {
+                'regex': r'(?<=user=).*?(?= )',
+                'value': None,
+                'optional': False,
+                'type': str
+            },
+            'email': {
+                'regex': r'(?<=email=).*?(?= )',
+                'value': None,
+                'optional': True,
+                'type': str
+            },
+            'phone': {
+                'regex': r'(?<=phone=).*?(?= )',
+                'value': None,
+                'optional': True,
+                'type': str
+            },
+            'comment': {
+                'regex': r'(?<=comment=).*?(?= )',
+                'value': None,
+                'optional': True,
+                'type': str
+            },
+            'timestamp': {
+                'regex': r'(?<=timestamp=).*?$',
+                'value': None,
+                'optional': True,
+                'type': str
+            }
+        }
+    },
     'get_where': {
         'command': r'tx where',
         'inputs': {},
@@ -124,14 +164,24 @@ class TelescopeInterface:
     def __init__(self, name):
         self.logger = logging.getLogger('ixchel.TelescopeInterface')
         self.command = self.assign(name)
+        # reset command inputs and outputs
+        self.logger.debug('before set_defaults()')
+        self.set_defaults()
 
     # assign the specific interface by name
+
     def assign(self, name):
         for key, value in telescope_interfaces.items():
             if key == name:
                 return value
         self.logger.error('Command (%s) not found.' % name)
         raise ValueError('Command (%s) not found.' % name)
+
+    def set_defaults(self):
+        for key in self.get_output_keys():
+            self.set_output_value(key, self.get_output_default(key))
+        for key in self.get_input_keys():
+            self.set_input_value(key, self.get_input_default(key))
 
     # get command text
     def get_command(self):
@@ -159,42 +209,60 @@ class TelescopeInterface:
 
     # get regex that defines this output value
     def get_output_regex(self, name):
-        if name in self.command['outputs']:
+        try:
             return self.command['outputs'][name]['regex']
-        else:
+        except Exception as e:
             self.logger.error('Command output (%s) regex not found.' % name)
+            return None
+
+    # get default for this output value
+    def get_output_default(self, name):
+        try:
+            return self.command['outputs'][name]['default']
+        except Exception as e:
+            self.logger.warning(
+                'Command output (%s) default not found. Assumed None.' % name)
             return None
 
     # is this output value marked as optional?
     def is_output_optional(self, name):
-        if name in self.command['outputs']:
+        try:
             return self.command['outputs'][name].get('optional', False)
-        else:
+        except Exception as e:
             self.logger.error(
                 'Command output (%s) is_optional not found.' % name)
             return False
 
     # set output value by name
     def set_output_value(self, name, value):
-        if name in self.command['outputs']:
+        try:
             self.command['outputs'][name]['value'] = value
-        else:
+        except Exception as e:
             self.logger.error('Output (%s) not found.' % name)
             raise ValueError('Output (%s) not found.' % name)
 
     # get input value by name
     def get_input_value(self, name):
-        if name in self.command['inputs']:
+        try:
             return self.command['inputs'][name]['value']
-        else:
+        except Exception as e:
             self.logger.error('Command input (%s) not found.' % name)
+            return None
+
+    # get default for this output value
+    def get_input_default(self, name):
+        try:
+            return self.command['inputs'][name]['default']
+        except Exception as e:
+            self.logger.warning(
+                'Command input (%s) default not found. Assumed None.' % name)
             return None
 
     # set input value by name
     def set_input_value(self, name, value):
-        if name in self.command['inputs']:
+        try:
             self.command['inputs'][name]['value'] = value
-        else:
+        except Exception as e:
             self.logger.error('Input (%s) not found.' % name)
             raise ValueError('Input (%s) not found.' % name)
 

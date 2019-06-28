@@ -106,6 +106,7 @@ class IxchelCommand:
             # create a command that applies the specified values
             self.telescope.set_focus(telescope_interface)
             # send output to Slack
+            pos = telescope_interface.get_output_value('pos')
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
             self.handle_error(command.group(0), e)
@@ -114,7 +115,23 @@ class IxchelCommand:
         try:
             telescope_interface = TelescopeInterface('get_lock')
             # query telescope
-            self.telescope.get_precipitation(telescope_interface)
+            self.telescope.get_lock(telescope_interface)
+            # assign values
+            user = telescope_interface.get_output_value('user')
+            # send output to Slack
+            self.slack.send_message(
+                'Telescope is currently locked by %s.' % user)
+        except Exception as e:
+            self.handle_error(command.group(0), e)
+
+    def set_lock(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('set_lock')
+            # assign values
+            user = user['id']
+            telescope_interface.set_input_value('user', user)
+            # query telescope
+            self.telescope.set_lock(telescope_interface)
             # assign values
             user = telescope_interface.get_output_value('user')
             # send output to Slack
@@ -275,7 +292,7 @@ class IxchelCommand:
 
             {
                 'regex': r'^\\lock$',
-                'function': self.get_lock,
+                'function': self.set_lock,
                 'description': '`\\lock` locks the telescope for use',
                 'hide': False
             },

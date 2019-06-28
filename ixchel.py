@@ -13,7 +13,7 @@ from telescope import Telescope
 # logging
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - - %(name)s - %(funcName)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s',
     handlers=[
         logging.FileHandler("ixchel.log"),
         logging.StreamHandler()

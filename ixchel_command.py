@@ -98,6 +98,9 @@ class IxchelCommand:
             self.handle_error(command.group(0), e)
 
     def set_focus(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message('Please lock the telescope before calling this command.')
+            return            
         try:
             telescope_interface = TelescopeInterface('set_focus')
             # assign values
@@ -125,6 +128,10 @@ class IxchelCommand:
             self.handle_error(command.group(0), e)
 
     def set_lock(self, command, user):
+        if self.is_locked():
+            _user = self.locked_by()
+            self.slack.send_message('Telescope is already locked by %s.'%_user.get('name', 'Unknown'))
+            return 
         try:
             telescope_interface = TelescopeInterface('set_lock')
             # assign values
@@ -136,9 +143,72 @@ class IxchelCommand:
             user = telescope_interface.get_output_value('user')
             # send output to Slack
             self.slack.send_message(
-                'Telescope is currently locked by %s.' % user)
+                'Telescope is locked.')
         except Exception as e:
             self.handle_error(command.group(0), e)
+
+    def unlock(self, command, user):
+        if not self.is_locked():
+            self.slack.send_message('Telescope is not locked.')
+            return
+        if not self.is_locked_by(user):
+            self.slack.send_message('Telescope is not locked by you.')
+            return        
+        try:
+            telescope_interface = TelescopeInterface('unlock')
+            # assign values
+            # query telescope
+            self.telescope.set_lock(telescope_interface)
+            # send output to Slack
+            self.slack.send_message(
+                'Telescope is unlocked.')
+        except Exception as e:
+            self.handle_error(command.group(0), e)
+
+    def locked_by(self):
+        try:
+            telescope_interface = TelescopeInterface('get_lock')
+            # query telescope
+            self.telescope.get_lock(telescope_interface)
+            # assign values
+            _user = telescope_interface.get_output_value('user')
+            self.logger.debug(
+                'Telescope is currently locked by %s.' % _user)
+            # assign values
+            return self.slack.get_user_by_id(_user)
+        except Exception as e:
+            self.logger.error('Could not get telescope lock info. Exception (%s).'%e.message)
+        return {}
+
+    def is_locked_by(self, user):
+        try:
+            telescope_interface = TelescopeInterface('get_lock')
+            # query telescope
+            self.telescope.get_lock(telescope_interface)
+            # assign values
+            _user = telescope_interface.get_output_value('user')
+            self.logger.debug(
+                'Telescope is currently locked by %s.' % _user)
+            # assign values
+            return _user == user['id']
+        except Exception as e:
+            self.logger.error('Could not get telescope lock info. Exception (%s).'%e.message)
+        return False
+
+    def is_locked(self):
+        try:
+            telescope_interface = TelescopeInterface('get_lock')
+            # query telescope
+            self.telescope.get_lock(telescope_interface)
+            # assign values
+            _user = telescope_interface.get_output_value('user')
+            self.logger.debug(
+                'Telescope is currently locked by %s.' % _user)
+            # assign values
+            return _user is not None
+        except Exception as e:
+            self.logger.error('Could not get telescope lock info. Exception (%s).'%e.message)
+        return True
 
     # https://openweathermap.org/weather-conditions
     def get_weather(self, command, user):
@@ -293,7 +363,14 @@ class IxchelCommand:
             {
                 'regex': r'^\\lock$',
                 'function': self.set_lock,
-                'description': '`\\lock` locks the telescope for use',
+                'description': '`\\lock` locks the telescope for use by you',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\unlock$',
+                'function': self.unlock,
+                'description': '`\\unlock` unlocks the telescope for use by others',
                 'hide': False
             },
 

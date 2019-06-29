@@ -85,6 +85,19 @@ telescope_interfaces = {
             }
         }
     },
+    'unlock': {
+        'command': 'tx lock clear',
+        'inputs': {
+        },
+        'outputs': {
+            'success': {
+                'regex': r'^done lock$',
+                'value': None,
+                'optional': False,
+                'type': str
+            }
+        }
+    },
     'set_lock': {
         'command': 'tx lock user={user}',
         'inputs': {
@@ -199,7 +212,10 @@ class TelescopeInterface:
     def get_output_value(self, name):
         if name in self.command['outputs']:
             try:
-                return self.command['outputs'][name]['type'](self.command['outputs'][name]['value'])
+                if self.command['outputs'][name]['value'] == None:
+                    return self.command['outputs'][name]['value'] 
+                else:
+                    return self.command['outputs'][name]['type'](self.command['outputs'][name]['value'])
             except Exception as e:
                 self.logger.error('Command output conversion (%s) failed.' %
                                   self.command['outputs'][name]['type'])

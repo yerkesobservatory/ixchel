@@ -28,6 +28,14 @@ class SSH:
         return False
 
     def command(self, command):
+        #test connection
+        try:
+            self.ssh.exec_command('echo its alive')  # test the connection
+        except Exception as e:
+            self.logger.warning(
+                'SSH command failed. Exception (%s). Reconnecting...' % e.message)
+            self.connect()
+        #run command                        
         result = {
             'response': None,
             'stdout': [],
@@ -149,6 +157,13 @@ class Telescope:
         interface.assign_outputs(result)
 
     def set_lock(self, interface):
+        command = interface.assign_inputs()
+        results = self.command(command)
+        result = results['response']
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
+
+    def unlock(self, interface):
         command = interface.assign_inputs()
         results = self.command(command)
         result = results['response']

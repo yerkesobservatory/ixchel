@@ -11,6 +11,7 @@
   "dependencies": {
     "cross-env": "^5.2.0",
     "delay": "^4.3.0",
-    "slack-mock": "^1.1.1"
+    "slack-mock": "^1.1.1",
+    "ws": "^7.0.1"
   }
 }

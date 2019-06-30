@@ -318,28 +318,6 @@ class IxchelCommand:
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
             self.handle_error(command.group(0), e)
 
-# send_message(user_name + ', here are some helpful tips:\n' +
-#                 # '>`\\stats` shows the weekly telescope statistics\n' + \
-#                 '>`\\clearsky` shows the Clear Sky chart(s)\n' + \
-#                 '>`\\skycam` shows nearby skycam images\n' + \
-#                 '>`\\find <object>` finds <object> position in sky (add wildcard `*` to widen search)\n' + \
-#                 '>`\\plot <object#>` shows if/when <object> is observable (run `\\find` first!)\n' + \
-#                 '>`\\lock` locks the telescope\n' + \
-#                 '>`\\unlock` unlocks the telescope\n' + \
-#                 '>`\\crack` opens the observatory\n' + \
-#                 '>`\\squeeze` closes the observatory\n' + \
-#                 '>`\\share <on/off>` shares/unshares a locked telescope with others\n' + \
-#                 #'>`\\homer` re-homes the scope and dome (this will `\squeeze` the observatory!)\n'
-#                 '>`\\point <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` or `\\point <object#>` points the telescope\n' + \
-#                 '>`\\pinpoint <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` or `\\pinpoint <object#>` pinpoints the telescope\n' + \
-#                 # '>`\\track <on/off>` toggles telescope tracking\n' + \
-#                 # '>`\\nudge <dRA in arcmin> <dDEC in arcmin>` offsets the telescope pointing\n' + \
-#                 '>`\\image <exposure> <binning> <filter>` takes a picture\n' + \
-#                 '>`\\bias <binning>` takes a bias frame\n' + \
-#                 '>`\\dark <exposure> <binning>` takes a dark frame.\n' + \
-#                 '>`\\tostars` uploads recent images to <%s|stars> (run this command at the end of your session)\n' % stars_url
-#                 )
-
     def init_commands(self):
         self.commands = [
 

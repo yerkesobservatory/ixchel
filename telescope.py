@@ -170,6 +170,13 @@ class Telescope:
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
+    def clear_lock(self, interface):
+        command = interface.assign_inputs()
+        results = self.command(command)
+        result = results['response']
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
+
     def get_where(self, interface):
         results = self.command(interface.get_command())
         result = results['response']

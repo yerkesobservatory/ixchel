@@ -98,6 +98,19 @@ telescope_interfaces = {
             }
         }
     },
+    'clear_lock': {
+        'command': 'tx lock clear',
+        'inputs': {
+        },
+        'outputs': {
+            'success': {
+                'regex': r'^done lock$',
+                'value': None,
+                'optional': False,
+                'type': str
+            }
+        }
+    },
     'set_lock': {
         'command': 'tx lock user={user}',
         'inputs': {
@@ -213,7 +226,7 @@ class TelescopeInterface:
         if name in self.command['outputs']:
             try:
                 if self.command['outputs'][name]['value'] == None:
-                    return self.command['outputs'][name]['value'] 
+                    return self.command['outputs'][name]['value']
                 else:
                     return self.command['outputs'][name]['type'](self.command['outputs'][name]['value'])
             except Exception as e:

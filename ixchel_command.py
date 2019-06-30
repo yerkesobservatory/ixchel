@@ -114,23 +114,21 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_lock(self, command, user):
+    def get_who(self, command, user):
+        if not self.is_locked():
+            self.slack.send_message('Telescope is not locked.')
+            return        
         try:
-            telescope_interface = TelescopeInterface('get_lock')
-            # query telescope
-            self.telescope.get_lock(telescope_interface)
-            # assign values
-            user = telescope_interface.get_output_value('user')
-            # send output to Slack
-            self.slack.send_message(
-                'Telescope is currently locked by %s.' % user)
+            _user = self.locked_by()
+            self.slack.send_message('Telescope is locked by %s.'%_user.get('name', 'an unknown user'))
+            return             
         except Exception as e:
             self.handle_error(command.group(0), e)
 
     def set_lock(self, command, user):
         if self.is_locked():
             _user = self.locked_by()
-            self.slack.send_message('Telescope is already locked by %s.'%_user.get('name', 'Unknown'))
+            self.slack.send_message('Telescope is locked by %s.'%_user.get('name', 'an unknown user'))
             return 
         try:
             telescope_interface = TelescopeInterface('set_lock')
@@ -152,13 +150,26 @@ class IxchelCommand:
             self.slack.send_message('Telescope is not locked.')
             return
         if not self.is_locked_by(user):
-            self.slack.send_message('Telescope is not locked by you.')
-            return        
+            _user = self.locked_by()
+            self.slack.send_message('Telescope is locked by %s.'%_user.get('name', 'an unknown user'))
+            return       
         try:
             telescope_interface = TelescopeInterface('unlock')
             # assign values
             # query telescope
-            self.telescope.set_lock(telescope_interface)
+            self.telescope.unlock(telescope_interface)
+            # send output to Slack
+            self.slack.send_message(
+                'Telescope is unlocked.')
+        except Exception as e:
+            self.handle_error(command.group(0), e)
+
+    def clear_lock(self, command, user):    
+        try:
+            telescope_interface = TelescopeInterface('clear_lock')
+            # assign values
+            # query telescope
+            self.telescope.clear_lock(telescope_interface)
             # send output to Slack
             self.slack.send_message(
                 'Telescope is unlocked.')
@@ -371,6 +382,20 @@ class IxchelCommand:
                 'regex': r'^\\unlock$',
                 'function': self.unlock,
                 'description': '`\\unlock` unlocks the telescope for use by others',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\clear$',
+                'function': self.clear_lock,
+                'description': '`\\clear` clears the telescope lock',
+                'hide': True
+            },
+
+            {
+                'regex': r'^\\who$',
+                'function': self.get_who,
+                'description': '`\\who` shows who has the telescope locked',
                 'hide': False
             },
 

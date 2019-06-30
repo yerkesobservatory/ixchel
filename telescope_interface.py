@@ -2,6 +2,33 @@ import logging
 import re
 
 telescope_interfaces = {
+    'get_sun': {
+        'command': r'sun',
+        'inputs': {},
+        'outputs': {
+            'alt': {
+                'regex': r'(?<=alt=).*?$',
+                'value': None,
+                'type': float
+            }
+        }
+    },
+    'get_moon': {
+        'command': r'moon',
+        'inputs': {},
+        'outputs': {
+            'alt': {
+                'regex': r'(?<=alt=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'phase': {
+                'regex': r'(?<=phase=).*?(?= )',
+                'value': None,
+                'type': float
+            }
+        }
+    },    
     'get_precipitation': {
         'command': r'tx taux',
         'inputs': {},
@@ -306,10 +333,10 @@ class TelescopeInterface:
                     self.logger.debug(
                         '%s value is missing (but optional).' % key)
                 else:
-                    self.logger.error('%s value is missing or invalid (%s).' %
-                                      (key, self.get_output_value(key)))
-                    raise ValueError('%s value is missing or invalid (%s).' %
-                                     (key, self.get_output_value(key)))
+                    self.logger.error(
+                        '%s value is missing or invalid (%s).' % (key, result.strip()))
+                    raise ValueError(
+                        '%s value is missing or invalid' % (key, result.strip()))
 
     # parse result and assign output values
     def assign_inputs(self):

@@ -153,6 +153,12 @@ class Telescope:
     def get_precipitation(self, interface):
         self.getter(interface)
 
+    def get_sun(self, interface):
+        self.getter(interface)
+
+    def get_moon(self, interface):
+        self.getter(interface)
+
     def get_focus(self, interface):
         self.getter(interface)
 

@@ -85,6 +85,31 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
+    def get_sun(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_sun')
+            # query telescope
+            self.telescope.get_precipitation(telescope_interface)
+            # assign values
+            alt = telescope_interface.get_output_value('alt')
+            # send output to Slack
+            self.slack.send_message('Sun altitude is %.1f°.' % alt)
+        except Exception as e:
+            self.handle_error(command.group(0), e)
+
+    def get_moon(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_moon')
+            # query telescope
+            self.telescope.get_precipitation(telescope_interface)
+            # assign values
+            alt = telescope_interface.get_output_value('alt')
+            phase = int(telescope_interface.get_output_value('phase')*100)
+            # send output to Slack
+            self.slack.send_message('Moon altitude is %.1f°. Moon phase is %d%%.' % (alt, phase))
+        except Exception as e:
+            self.handle_error(command.group(0), e)
+
     def get_focus(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_focus')
@@ -184,7 +209,7 @@ class IxchelCommand:
             # assign values
             _user = telescope_interface.get_output_value('user')
             self.logger.debug(
-                'Telescope is currently locked by %s.' % _user)
+                'Telescope is locked by %s.' % _user)
             # assign values
             return self.slack.get_user_by_id(_user)
         except Exception as e:
@@ -199,7 +224,7 @@ class IxchelCommand:
             # assign values
             _user = telescope_interface.get_output_value('user')
             self.logger.debug(
-                'Telescope is currently locked by %s.' % _user)
+                'Telescope is locked by %s.' % _user)
             # assign values
             return _user == user['id']
         except Exception as e:
@@ -214,7 +239,7 @@ class IxchelCommand:
             # assign values
             _user = telescope_interface.get_output_value('user')
             self.logger.debug(
-                'Telescope is currently locked by %s.' % _user)
+                'Telescope is locked by %s.' % _user)
             # assign values
             return _user is not None
         except Exception as e:
@@ -324,14 +349,14 @@ class IxchelCommand:
             {
                 'regex': r'^\\focus$',
                 'function': self.get_focus,
-                'description': '`\\focus` shows the current focus position',
+                'description': '`\\focus` shows the telescope focus position',
                 'hide': False
             },
 
             {
                 'regex': r'^\\focus\s([0-9]+)$',
                 'function': self.set_focus,
-                'description': '`\\focus <integer>` sets the current focus position to <integer>',
+                'description': '`\\focus <integer>` sets the telescope focus position to <integer>',
                 'hide': False
             },
 
@@ -392,9 +417,23 @@ class IxchelCommand:
             },
 
             {
+                'regex': r'^\\sun$',
+                'function': self.get_sun,
+                'description': '`\\sun` shows the sun altitude',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\moon$',
+                'function': self.get_moon,
+                'description': '`\\moon` shows the moon altitude and phase',
+                'hide': False
+            },
+
+            {
                 'regex': r'^\\where$',
                 'function': self.get_where,
-                'description': '`\\where` shows where the telescope is currently pointing',
+                'description': '`\\where` shows where the telescope is pointing',
                 'hide': False
             },
 

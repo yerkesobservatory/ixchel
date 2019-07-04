@@ -6,9 +6,10 @@ from telescope_interface import TelescopeInterface
 
 
 class SSH:
-    def __init__(self, config):
+    def __init__(self, ixchel):
         self.logger = logging.getLogger('ixchel.SSH')
-        self.config = config
+        self.ixchel = ixchel
+        self.config = ixchel.config
         self.server = self.config.get('ssh', 'server')
         self.username = self.config.get('ssh', 'username')
         self.key_path = self.config.get('ssh', 'key_path')
@@ -21,13 +22,21 @@ class SSH:
             self.ssh.connect(self.server, username=self.username,
                              key_filename=self.key_path)
             self.command('echo its alive')  # test the connection
+            self.ixchel.slack.send_message('Connecting to the telescope...')
+            self.ixchel.slack.send_typing()
             return True
         except Exception as e:
             self.logger.error(
                 'SSH initialization failed. Exception (%s).' % e.message)
         return False
 
-    def command(self, command):
+    def command(self, command, is_background):
+        if is_background:
+            return self.command_background(command)
+        else:
+            return self.command_foreground(command)
+
+    def command_background(self, command):
         # test connection
         try:
             self.ssh.exec_command('echo its alive')  # test the connection
@@ -39,7 +48,49 @@ class SSH:
         result = {
             'response': None,
             'stdout': [],
-            'stderr': []
+            'stderr': [],
+            'pid': None
+        }
+        try:
+            stdin, stdout, stderr = self.ssh.exec_command('%s &' % command)
+            result['stdout'] = stdout.readlines()
+            result['stderr'] = stderr.readlines()
+            if len(result['stdout']) > 0:
+                result['response'] = result['stdout'][0]
+                # get the pid
+                match = re.search(r'([0-9]+)$', result['response'])
+                if match:
+                    result['pid'] = int(match.group(1))
+                else:
+                    self.logger.error(
+                        'Command (%s) did not return a pid.' % command)
+            elif len(result['stderr']) > 0:
+                result['response'] = result['stderr'][0]
+                self.logger.error('Command (%s) returned error (%s).' % (
+                    command, result['response']))
+            else:
+                result['response'] = 'Invalid response.'
+                self.logger.error(
+                    'Command (%s) returned invalid response.' % (command))
+        except Exception as e:
+            self.logger.error(
+                'SSH command failed. Exception (%s).' % e.message)
+        return result
+
+    def command_foreground(self, command):
+        # test connection
+        try:
+            self.ssh.exec_command('echo its alive')  # test the connection
+        except Exception as e:
+            self.logger.warning(
+                'SSH command failed. Exception (%s). Reconnecting...' % e.message)
+            self.connect()
+        # run command
+        result = {
+            'response': None,
+            'stdout': [],
+            'stderr': [],
+            'pid': None
         }
         try:
             stdin, stdout, stderr = self.ssh.exec_command(command)
@@ -65,12 +116,13 @@ class Telescope:
 
     ssh = None
 
-    def __init__(self, config):
+    def __init__(self, ixchel):
         self.logger = logging.getLogger('ixchel.Telescope')
-        self.config = config
+        self.ixchel = ixchel
+        self.config = ixchel.config
         self.use_ssh = self.config.get('telescope', 'use_ssh', False)
         if self.use_ssh:
-            self.ssh = SSH(config)
+            self.ssh = SSH(ixchel)
             self.ssh.connect()
 
     def init_ssh(self):
@@ -89,7 +141,7 @@ class Telescope:
                 'SSH initialization failed. Exception (%s).' % e.message)
         return None
 
-    def command(self, command, use_communicate=True, timeout=0):
+    def command(self, command, is_background, use_communicate=True, timeout=0):
         result = {
             'stdout': [],
             'stderr': []
@@ -105,13 +157,13 @@ class Telescope:
                 self.ssh.connect()
             else:  # need to reconnect?
                 try:
-                    self.ssh.command('echo its alive')
+                    self.ssh.command('echo its alive', is_background)
                 except Exception as e:
                     self.logger.warn(
                         'SSH is not connected. Reconnecting...')
                     self.ssh.connect()
             try:
-                return self.ssh.command(command)
+                return self.ssh.command(command, is_background)
             except Exception as e:
                 self.logger.error(
                     'Command (%s) via SSH failed. Exception (%s).')
@@ -135,7 +187,8 @@ class Telescope:
     # To support future telescope interfaces,
     # these will be called by the *explicit* getter
     def getter(self, interface):
-        results = self.command(interface.get_command())
+        results = self.command(interface.get_command(),
+                               interface.is_background())
         result = results['response']
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
@@ -145,7 +198,14 @@ class Telescope:
     # these will be called by the *explicit* setter
     def setter(self, interface):
         command = interface.assign_inputs()
-        results = self.command(command)
+        results = self.command(command, interface.is_background())
+        result = results['response']
+        # parse the result and assign values to output valuse
+        interface.assign_outputs(result)
+
+    def test(self, interface):
+        results = self.command(interface.get_command(),
+                               interface.is_background())
         result = results['response']
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)

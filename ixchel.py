@@ -34,19 +34,20 @@ class Ixchel:
     # reconnect delay
     slack_reconnect_delay_s = 10
 
-    def __init__(self, config, telescope):
+    def __init__(self, config):
         self.logger = logging.getLogger('ixchel.Ixchel')
+        # init config
         self.config = config
         # init Slack interface
-        self.slack = Slack(self.config)
+        self.slack = Slack(self)
+        # the telescope
+        self.telescope = Telescope(self)
+        # init IxchelCommand
+        self.ixchel_commands = IxchelCommand(self)
+        # update settings
         self.username = self.config.get('slack', 'username')
         self.channel = self.config.get('slack', 'channel')
         self.channel_id = self.slack.get_channel_id(self.channel)
-        # the telescope
-        self.telescope = telescope
-        # init IxchelCommand
-        self.ixchel_commands = IxchelCommand(
-            self.config, self.slack, self.telescope)
 
     def loop(self):
         # connect to Slack
@@ -79,6 +80,7 @@ class Ixchel:
                 if 'channel' in message:
                     # message posted in ixchel channel?
                     if message['channel'] == self.channel_id:
+                        self.slack.send_typing()
                         self.process(message)
                     else:  # message posted directly to bot
                         self.logger.debug('Received direct message.')
@@ -109,11 +111,8 @@ def main():
         raise Exception('Configuration file (%s) is missing.' % cfg_file_path)
     config = Config(cfg_file_path)
 
-    # init the telescope
-    telescope = Telescope(config)
-
     # Mayan goddess of the moon, medicine, and birth (mid-wifery). Stronger half of Itzamna!
-    ixchel = Ixchel(config, telescope)
+    ixchel = Ixchel(config)
     ixchel.loop()
 
 

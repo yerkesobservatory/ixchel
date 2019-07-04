@@ -8,9 +8,10 @@ import os
 
 
 class Slack:
-    def __init__(self, config):
+    def __init__(self, ixchel):
         self.logger = logging.getLogger('ixchel.Slack')
-        self.config = config
+        self.ixchel = ixchel
+        self.config = ixchel.config
         self.token = self.config.get('slack', 'token')
         self.channel = self.config.get('slack', 'channel')
         self.username = self.config.get('slack', 'username')
@@ -36,16 +37,27 @@ class Slack:
                 self.dt_last_ping = datetime.datetime.now()
                 return True
             except Exception as e:
-                self.logger.error('Ping failed (%s).' % e.message)
+                self.logger.error('Ping failed. Exception (%s).' % e.message)
                 self.connected = False
                 return False
+
+    def send_typing(self, channel=None):
+        # use default values if none sent
+        if channel == None:
+            channel = self.channel
+        typing_event_json = {
+            "id": 1,
+            "type": "typing",
+            "channel": self.get_channel_id(channel)
+        }
+        self.sc.server.websocket.send(json.dumps(typing_event_json))
 
     def read_messages(self):
         try:
             return self.sc.rtm_read()
         except Exception as e:
             self.logger.error(
-                'Read messages failed.')
+                'Read messages failed. Exception (%s).' % e.message)
             self.connected = False
             return []
 

@@ -2,8 +2,14 @@ import logging
 import re
 
 telescope_interfaces = {
+    'test': {
+        'command': 'echo its alive',
+        'is_background': True,
+        'inputs': {},
+        'outputs': {}
+    },
     'get_sun': {
-        'command': r'sun',
+        'command': 'sun',
         'inputs': {},
         'outputs': {
             'alt': {
@@ -14,7 +20,7 @@ telescope_interfaces = {
         }
     },
     'get_moon': {
-        'command': r'moon',
+        'command': 'moon',
         'inputs': {},
         'outputs': {
             'alt': {
@@ -28,9 +34,9 @@ telescope_interfaces = {
                 'type': float
             }
         }
-    },    
+    },
     'get_precipitation': {
-        'command': r'tx taux',
+        'command': 'tx taux',
         'inputs': {},
         'outputs': {
             'clouds': {
@@ -51,7 +57,7 @@ telescope_interfaces = {
         }
     },
     'get_focus': {
-        'command': r'tx focus',
+        'command': 'tx focus',
         'inputs': {},
         'outputs': {
             'pos': {
@@ -77,7 +83,7 @@ telescope_interfaces = {
         }
     },
     'get_lock': {
-        'command': r'tx lock',
+        'command': 'tx lock',
         'inputs': {},
         'outputs': {
             'user': {
@@ -179,7 +185,7 @@ telescope_interfaces = {
         }
     },
     'get_where': {
-        'command': r'tx where',
+        'command': 'tx where',
         'inputs': {},
         'outputs': {
             'ra': {
@@ -218,7 +224,6 @@ class TelescopeInterface:
         self.logger = logging.getLogger('ixchel.TelescopeInterface')
         self.command = self.assign(name)
         # reset command inputs and outputs
-        self.logger.debug('before set_defaults()')
         self.set_defaults()
 
     # assign the specific interface by name
@@ -239,6 +244,15 @@ class TelescopeInterface:
     # get command text
     def get_command(self):
         return self.command['command']
+
+    # get command text
+    def is_background(self):
+        try:
+            return self.command['is_background']
+        except Exception as e:
+            self.logger.info(
+                'Command is_background not found. Assumed False.')
+            return False
 
     # get names (keys) of all outputs
     def get_output_keys(self):

@@ -13,13 +13,13 @@ class IxchelCommand:
 
     commands = []
 
-    def __init__(self, config, slack, telescope):
+    def __init__(self, ixchel):
         self.logger = logging.getLogger('ixchel.IxchelCommand')
-        self.config = config
+        self.config = ixchel.config
         self.channel = self.config.get('slack', 'channel')
         self.username = self.config.get('slack', 'username')
-        self.slack = slack
-        self.telescope = telescope
+        self.slack = ixchel.slack
+        self.telescope = ixchel.telescope
         # build list of backslash commands
         self.init_commands()
 
@@ -93,7 +93,8 @@ class IxchelCommand:
             # assign values
             alt = telescope_interface.get_output_value('alt')
             # send output to Slack
-            self.slack.send_message('Sun altitude is %.1f°.' % alt)
+            self.slack.send_message('Sun:')            
+            self.slack.send_message('>Altitude: %.1f°' % alt)
         except Exception as e:
             self.handle_error(command.group(0), e)
 
@@ -106,7 +107,9 @@ class IxchelCommand:
             alt = telescope_interface.get_output_value('alt')
             phase = int(telescope_interface.get_output_value('phase')*100)
             # send output to Slack
-            self.slack.send_message('Moon altitude is %.1f°. Moon phase is %d%%.' % (alt, phase))
+            self.slack.send_message('Moon:')            
+            self.slack.send_message('>Altitude: %.1f°' % alt)
+            self.slack.send_message('>Phase: %d%%' % phase)         
         except Exception as e:
             self.handle_error(command.group(0), e)
 
@@ -144,16 +147,14 @@ class IxchelCommand:
             self.slack.send_message('Telescope is not locked.')
             return        
         try:
-            _user = self.locked_by()
-            self.slack.send_message('Telescope is locked by %s.'%_user.get('name', 'an unknown user'))
+            self.slack.send_message('Telescope is locked by %s.'%self.locked_by())
             return             
         except Exception as e:
             self.handle_error(command.group(0), e)
 
     def set_lock(self, command, user):
         if self.is_locked():
-            _user = self.locked_by()
-            self.slack.send_message('Telescope is locked by %s.'%_user.get('name', 'an unknown user'))
+            self.slack.send_message('Telescope is locked by %s.'%self.locked_by())
             return 
         try:
             telescope_interface = TelescopeInterface('set_lock')
@@ -175,8 +176,7 @@ class IxchelCommand:
             self.slack.send_message('Telescope is not locked.')
             return
         if not self.is_locked_by(user):
-            _user = self.locked_by()
-            self.slack.send_message('Telescope is locked by %s.'%_user.get('name', 'an unknown user'))
+            self.slack.send_message('Telescope is locked by %s.'%self.locked_by())
             return       
         try:
             telescope_interface = TelescopeInterface('unlock')
@@ -211,10 +211,10 @@ class IxchelCommand:
             self.logger.debug(
                 'Telescope is locked by %s.' % _user)
             # assign values
-            return self.slack.get_user_by_id(_user)
+            return self.slack.get_user_by_id(_user).get('name', _user)
         except Exception as e:
             self.logger.error('Could not get telescope lock info. Exception (%s).'%e.message)
-        return {}
+        return 'unknown'
 
     def is_locked_by(self, user):
         try:
@@ -343,6 +343,18 @@ class IxchelCommand:
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
             self.handle_error(command.group(0), e)
 
+    def test(self, command, user):
+        self.slack.send_message('This command is limited to authorized users only.')
+        try:
+            telescope_interface = TelescopeInterface('test')
+            # query telescope
+            self.telescope.test(telescope_interface)
+            # assign values
+            # send output to Slack      
+        except Exception as e:
+            self.handle_error(command.group(0), e)
+
+
     def init_commands(self):
         self.commands = [
 
@@ -435,6 +447,13 @@ class IxchelCommand:
                 'function': self.get_where,
                 'description': '`\\where` shows where the telescope is pointing',
                 'hide': False
+            },
+        
+            {
+                'regex': r'^\\test$',
+                'function': self.test,
+                'description': '`\\test` is used for software testing only',
+                'hide': True
             },
 
         ]

@@ -7,7 +7,7 @@ import time
 import datetime
 import pytz
 from telescope_interface import TelescopeInterface
-
+from astropy.coordinates import Angle
 
 class IxchelCommand:
 
@@ -70,6 +70,11 @@ class IxchelCommand:
                 self.slack.send_message('>Slewing? Yes')
             else:
                 self.slack.send_message('>Slewing? No')
+            #get a DSS image of this part of the sky
+            ra_decimal = Angle(ra + '  hours').hour
+            dec_decimal = Angle(dec + '  degrees').degree
+            url = self.config.get('misc', 'dss_url').format(ra=ra_decimal, dec=dec_decimal)
+            self.slack.send_message("", [{"image_url": "%s" %url, "title": "Sky Position (DSS2):"}])
         except Exception as e:
             self.handle_error(command.group(0), e)
 
@@ -95,6 +100,26 @@ class IxchelCommand:
             # send output to Slack
             self.slack.send_message('Sun:')            
             self.slack.send_message('>Altitude: %.1f°' % alt)
+        except Exception as e:
+            self.handle_error(command.group(0), e)
+
+    def get_ccd(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_ccd')
+            # query telescope
+            self.telescope.get_ccd(telescope_interface)
+            # assign values
+            ncol = telescope_interface.get_output_value('ncol')
+            nrow = telescope_interface.get_output_value('nrow')
+            name = telescope_interface.get_output_value('name')
+            tchip = telescope_interface.get_output_value('tchip')
+            setpoint = telescope_interface.get_output_value('setpoint')
+            # send output to Slack
+            self.slack.send_message('CCD:')   
+            self.slack.send_message('>Type: %s' %name)
+            self.slack.send_message('>Pixels: %d x %d' %(nrow, ncol))
+            self.slack.send_message('>Temperature: %.1f° C'%tchip)
+            self.slack.send_message('>Set Point: %.1f° C'%setpoint)
         except Exception as e:
             self.handle_error(command.group(0), e)
 
@@ -343,18 +368,6 @@ class IxchelCommand:
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
             self.handle_error(command.group(0), e)
 
-    def test(self, command, user):
-        self.slack.send_message('This command is limited to authorized users only.')
-        try:
-            telescope_interface = TelescopeInterface('test')
-            # query telescope
-            self.telescope.test(telescope_interface)
-            # assign values
-            # send output to Slack      
-        except Exception as e:
-            self.handle_error(command.group(0), e)
-
-
     def init_commands(self):
         self.commands = [
 
@@ -448,12 +461,12 @@ class IxchelCommand:
                 'description': '`\\where` shows where the telescope is pointing',
                 'hide': False
             },
-        
+
             {
-                'regex': r'^\\test$',
-                'function': self.test,
-                'description': '`\\test` is used for software testing only',
-                'hide': True
-            },
+                'regex': r'^\\ccd$',
+                'function': self.get_ccd,
+                'description': '`\\ccd` shows CCD information',
+                'hide': False
+            }
 
         ]

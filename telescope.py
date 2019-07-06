@@ -203,17 +203,13 @@ class Telescope:
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
-    def test(self, interface):
-        results = self.command(interface.get_command(),
-                               interface.is_background())
-        result = results['response']
-        # parse the result and assign values to output valuse
-        interface.assign_outputs(result)
-
     def get_precipitation(self, interface):
         self.getter(interface)
 
     def get_sun(self, interface):
+        self.getter(interface)
+
+    def get_ccd(self, interface):
         self.getter(interface)
 
     def get_moon(self, interface):

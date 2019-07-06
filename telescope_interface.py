@@ -2,11 +2,37 @@ import logging
 import re
 
 telescope_interfaces = {
-    'test': {
-        'command': 'echo its alive',
-        'is_background': True,
+    # done ccd_status nrow=2048 ncol=2048 readtime=8 tchip=-17.8 setpoint=-20.0 name=ProLine_PL230 darktime=41668 pixel=15.0 rot=180 drive=100
+    'get_ccd': {
+        'command': 'tx ccd_status',
         'inputs': {},
-        'outputs': {}
+        'outputs': {
+            'nrow': {
+                'regex': r'(?<=nrow=).*?(?= )',
+                'value': None,
+                'type': int
+            },
+            'ncol': {
+                'regex': r'(?<=ncol=).*?(?= )',
+                'value': None,
+                'type': int
+            },
+            'tchip': {
+                'regex': r'(?<=tchip=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'setpoint': {
+                'regex': r'(?<=setpoint=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'name': {
+                'regex': r'(?<=name=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+        }
     },
     'get_sun': {
         'command': 'sun',

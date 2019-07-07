@@ -21,7 +21,7 @@ class SSH:
         try:
             self.ssh.connect(self.server, username=self.username,
                              key_filename=self.key_path)
-            self.command('echo its alive')  # test the connection
+            self.command('echo its alive', False)  # test the connection
             self.ixchel.slack.send_message('Connecting to the telescope...')
             self.ixchel.slack.send_typing()
             return True

@@ -35,11 +35,12 @@ class Ixchel:
     slack_reconnect_delay_s = 10
 
     def __init__(self, config):
-        self.logger = logging.getLogger('ixchel.Ixchel')
+        self.logger = logging.getLogger('Ixchel')
         # init config
         self.config = config
         # init Slack interface
         self.slack = Slack(self)
+        self.slack.connect()
         # the telescope
         self.telescope = Telescope(self)
         # init IxchelCommand
@@ -50,8 +51,6 @@ class Ixchel:
         self.channel_id = self.slack.get_channel_id(self.channel)
 
     def loop(self):
-        # connect to Slack
-        self.slack.connect()
         # main loop
         while True:
             while self.slack.connected:

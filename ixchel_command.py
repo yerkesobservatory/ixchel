@@ -8,13 +8,14 @@ import datetime
 import pytz
 from telescope_interface import TelescopeInterface
 from astropy.coordinates import Angle
+from sky import Satellite
 
 class IxchelCommand:
 
     commands = []
 
     def __init__(self, ixchel):
-        self.logger = logging.getLogger('ixchel.IxchelCommand')
+        self.logger = logging.getLogger('IxchelCommand')
         self.config = ixchel.config
         self.channel = self.config.get('slack', 'channel')
         self.username = self.config.get('slack', 'username')
@@ -22,6 +23,8 @@ class IxchelCommand:
         self.telescope = ixchel.telescope
         # build list of backslash commands
         self.init_commands()
+        # init the Sky interface
+        self.satellite = Satellite(ixchel) 
 
     def parse(self, message):
         text = message['text'].strip()
@@ -31,7 +34,7 @@ class IxchelCommand:
                 user = self.slack.get_user_by_id(message.get('user'))
                 self.logger.debug('Received the command: %s from %s.' % (
                     command.group(0), user.get('name')))
-                cmd['function'](command, user)
+                cmd['function'](command, user, command.groups())
                 return
         self.slack.send_message(
             '%s does not recognize your command (%s).' % (self.username, text))
@@ -41,15 +44,23 @@ class IxchelCommand:
             'Command failed (%s). Exception (%s).' % (text, e))
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
-    def get_help(self, command, user):
+    def find(self, command, user, parameters):          
+        try:
+            search_string = parameters[0]
+            satellites = self.satellite.find(search_string)
+            self.slack.send_message('Found %d satellite(s).'%len(satellites))
+        except Exception as e:
+            self.handle_error(command.group(0), e)        
+
+    def get_help(self, command, user, parameters):
         help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
             '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
-        for cmd in self.commands:
+        for cmd in sorted(self.commands, key = lambda i: i['regex']):
             if not cmd['hide']:
                 help_message += '>%s\n' % cmd['description']
         self.slack.send_message(help_message)
 
-    def get_where(self, command, user):
+    def get_where(self, command, user, parameters):
         try:
             telescope_interface = TelescopeInterface('get_where')
             # query telescope
@@ -78,7 +89,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_clouds(self, command, user):
+    def get_clouds(self, command, user, parameters):
         try:
             telescope_interface = TelescopeInterface('get_precipitation')
             # query telescope
@@ -90,7 +101,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_sun(self, command, user):
+    def get_sun(self, command, user, parameters):
         try:
             telescope_interface = TelescopeInterface('get_sun')
             # query telescope
@@ -103,7 +114,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_ccd(self, command, user):
+    def get_ccd(self, command, user, parameters):
         try:
             telescope_interface = TelescopeInterface('get_ccd')
             # query telescope
@@ -123,7 +134,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_moon(self, command, user):
+    def get_moon(self, command, user, parameters):
         try:
             telescope_interface = TelescopeInterface('get_moon')
             # query telescope
@@ -138,7 +149,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_focus(self, command, user):
+    def get_focus(self, command, user, parameters):
         try:
             telescope_interface = TelescopeInterface('get_focus')
             # query telescope
@@ -150,7 +161,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def set_focus(self, command, user):
+    def set_focus(self, command, user, parameters):
         if not self.is_locked_by(user):
             self.slack.send_message('Please lock the telescope before calling this command.')
             return            
@@ -167,7 +178,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_who(self, command, user):
+    def get_who(self, command, user, parameters):
         if not self.is_locked():
             self.slack.send_message('Telescope is not locked.')
             return        
@@ -177,7 +188,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def set_lock(self, command, user):
+    def set_lock(self, command, user, parameters):
         if self.is_locked():
             self.slack.send_message('Telescope is locked by %s.'%self.locked_by())
             return 
@@ -196,7 +207,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def unlock(self, command, user):
+    def unlock(self, command, user, parameters):
         if not self.is_locked():
             self.slack.send_message('Telescope is not locked.')
             return
@@ -214,7 +225,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def clear_lock(self, command, user):    
+    def clear_lock(self, command, user, parameters):    
         try:
             telescope_interface = TelescopeInterface('clear_lock')
             # assign values
@@ -272,7 +283,7 @@ class IxchelCommand:
         return True
 
     # https://openweathermap.org/weather-conditions
-    def get_weather(self, command, user):
+    def get_weather(self, command, user, parameters):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
         api_key = self.config.get('openweathermap', 'api_key')
@@ -318,7 +329,7 @@ class IxchelCommand:
             self.handle_error(command.group(0), e)
 
     # https://openweathermap.org/forecast5
-    def get_forecast(self, command, user):
+    def get_forecast(self, command, user, parameters):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
         api_key = self.config.get('openweathermap', 'api_key')
@@ -370,6 +381,13 @@ class IxchelCommand:
 
     def init_commands(self):
         self.commands = [
+
+            {
+                'regex': r'^\\find\s(.+)$',
+                'function': self.find,
+                'description': '`\\find <object>` finds <object> in the sky (add wildcard `*` to widen the search)',
+                'hide': False
+            },
 
             {
                 'regex': r'^\\focus$',

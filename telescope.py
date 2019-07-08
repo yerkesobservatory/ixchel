@@ -7,7 +7,7 @@ from telescope_interface import TelescopeInterface
 
 class SSH:
     def __init__(self, ixchel):
-        self.logger = logging.getLogger('ixchel.SSH')
+        self.logger = logging.getLogger('SSH')
         self.ixchel = ixchel
         self.config = ixchel.config
         self.server = self.config.get('ssh', 'server')
@@ -19,13 +19,17 @@ class SSH:
 
     def connect(self):
         try:
+            self.ixchel.slack.send_message(
+                'Connecting to the telescope. Please wait...')
             self.ssh.connect(self.server, username=self.username,
                              key_filename=self.key_path)
             self.command('echo its alive', False)  # test the connection
-            self.ixchel.slack.send_message('Connecting to the telescope...')
+            self.ixchel.slack.send_message('Connected to the telescope!')
             self.ixchel.slack.send_typing()
             return True
         except Exception as e:
+            self.ixchel.slack.send_message(
+                'Failed to connect to the telescope!')
             self.logger.error(
                 'SSH initialization failed. Exception (%s).' % e.message)
         return False
@@ -117,7 +121,7 @@ class Telescope:
     ssh = None
 
     def __init__(self, ixchel):
-        self.logger = logging.getLogger('ixchel.Telescope')
+        self.logger = logging.getLogger('Telescope')
         self.ixchel = ixchel
         self.config = ixchel.config
         self.use_ssh = self.config.get('telescope', 'use_ssh', False)

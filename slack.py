@@ -9,7 +9,7 @@ import os
 
 class Slack:
     def __init__(self, ixchel):
-        self.logger = logging.getLogger('ixchel.Slack')
+        self.logger = logging.getLogger('Slack')
         self.ixchel = ixchel
         self.config = ixchel.config
         self.token = self.config.get('slack', 'token')
@@ -27,7 +27,7 @@ class Slack:
         try:
             self.connected = self.sc.rtm_connect()
         except Exception as e:
-            self.logger.error('Connect failed. Exception (%s).' % e.message)
+            self.logger.error('Connect failed. Exception (%s).' % e)
             self.connected = False
 
     def ping(self):
@@ -37,7 +37,7 @@ class Slack:
                 self.dt_last_ping = datetime.datetime.now()
                 return True
             except Exception as e:
-                self.logger.error('Ping failed. Exception (%s).' % e.message)
+                self.logger.error('Ping failed. Exception (%s).' % e)
                 self.connected = False
                 return False
 
@@ -57,7 +57,7 @@ class Slack:
             return self.sc.rtm_read()
         except Exception as e:
             self.logger.error(
-                'Read messages failed. Exception (%s).' % e.message)
+                'Read messages failed. Exception (%s).' % e)
             self.connected = False
             return []
 
@@ -81,7 +81,7 @@ class Slack:
             )
         except Exception as e:
             self.logger.error(
-                'Could not send message (%s). Exception (%s).' % (message, e.message))
+                'Could not send message (%s). Exception (%s).' % (message, e))
             return False
         return True
 
@@ -107,7 +107,7 @@ class Slack:
                               files=files, data=data)
         except Exception as e:
             self.logger.error(
-                'Could not send file (%s). Exception.' % (path, e.message))
+                'Could not send file (%s). Exception.' % (path, e))
             return False
         return r.ok
 
@@ -117,7 +117,7 @@ class Slack:
             return result['channels']
         except Exception as e:
             self.logger.error(
-                'Failed to get channel list. Exception (%s).' % e.message)
+                'Failed to get channel list. Exception (%s).' % e)
             return []
 
     def get_channel_id(self, channel):
@@ -136,7 +136,7 @@ class Slack:
             return result['members']
         except Exception as e:
             self.logger.error(
-                'Failed to get user list. Exception (%s).' % e.message)
+                'Failed to get user list. Exception (%s).' % e)
             return []
 
     def get_user_by_id(self, id):

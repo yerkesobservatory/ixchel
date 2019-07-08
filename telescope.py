@@ -29,9 +29,9 @@ class SSH:
             return True
         except Exception as e:
             self.ixchel.slack.send_message(
-                'Failed to connect to the telescope!')
+                'Failed to connect to the telescope! Retrying...')
             self.logger.error(
-                'SSH initialization failed. Exception (%s).' % e.message)
+                'SSH initialization failed. Exception (%s).' % e)
         return False
 
     def command(self, command, is_background):
@@ -46,7 +46,7 @@ class SSH:
             self.ssh.exec_command('echo its alive')  # test the connection
         except Exception as e:
             self.logger.warning(
-                'SSH command failed. Exception (%s). Reconnecting...' % e.message)
+                'SSH command failed. Exception (%s). Reconnecting...' % e)
             self.connect()
         # run command
         result = {
@@ -78,7 +78,7 @@ class SSH:
                     'Command (%s) returned invalid response.' % (command))
         except Exception as e:
             self.logger.error(
-                'SSH command failed. Exception (%s).' % e.message)
+                'SSH command failed. Exception (%s).' % e)
         return result
 
     def command_foreground(self, command):
@@ -87,7 +87,7 @@ class SSH:
             self.ssh.exec_command('echo its alive')  # test the connection
         except Exception as e:
             self.logger.warning(
-                'SSH command failed. Exception (%s). Reconnecting...' % e.message)
+                'SSH command failed. Exception (%s). Reconnecting...' % e)
             self.connect()
         # run command
         result = {
@@ -112,7 +112,7 @@ class SSH:
                     'Command (%s) returned invalid response.' % (command))
         except Exception as e:
             self.logger.error(
-                'SSH command failed. Exception (%s).' % e.message)
+                'SSH command failed. Exception (%s).' % e)
         return result
 
 
@@ -142,7 +142,7 @@ class Telescope:
             return ssh
         except Exception as e:
             self.logger.error(
-                'SSH initialization failed. Exception (%s).' % e.message)
+                'SSH initialization failed. Exception (%s).' % e)
         return None
 
     def command(self, command, is_background, use_communicate=True, timeout=0):

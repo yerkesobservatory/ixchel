@@ -45,7 +45,7 @@ class Satellite:
                     sats = urllib2.urlopen(url).readlines()
                 except Exception as e:
                     self.logger.error(
-                        'Failed to open satellite database (%s). Exception (%s).' % (url, e.message))
+                        'Failed to open satellite database (%s). Exception (%s).' % (url, e))
                     continue
             # clean it up
             sats = [item.strip() for item in sats]

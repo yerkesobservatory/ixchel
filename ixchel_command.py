@@ -34,7 +34,7 @@ class IxchelCommand:
                 user = self.slack.get_user_by_id(message.get('user'))
                 self.logger.debug('Received the command: %s from %s.' % (
                     command.group(0), user.get('name')))
-                cmd['function'](command, user, command.groups())
+                cmd['function'](command, user)
                 return
         self.slack.send_message(
             '%s does not recognize your command (%s).' % (self.username, text))
@@ -44,15 +44,15 @@ class IxchelCommand:
             'Command failed (%s). Exception (%s).' % (text, e))
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
-    def find(self, command, user, parameters):          
+    def find(self, command, user):          
         try:
-            search_string = parameters[0]
+            search_string = command.group(1)
             satellites = self.satellite.find(search_string)
             self.slack.send_message('Found %d satellite(s).'%len(satellites))
         except Exception as e:
             self.handle_error(command.group(0), e)        
 
-    def get_help(self, command, user, parameters):
+    def get_help(self, command, user):
         help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
             '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
         for cmd in sorted(self.commands, key = lambda i: i['regex']):
@@ -60,7 +60,7 @@ class IxchelCommand:
                 help_message += '>%s\n' % cmd['description']
         self.slack.send_message(help_message)
 
-    def get_where(self, command, user, parameters):
+    def get_where(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_where')
             # query telescope
@@ -89,7 +89,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_clouds(self, command, user, parameters):
+    def get_clouds(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_precipitation')
             # query telescope
@@ -101,7 +101,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_sun(self, command, user, parameters):
+    def get_sun(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_sun')
             # query telescope
@@ -114,7 +114,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_ccd(self, command, user, parameters):
+    def get_ccd(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_ccd')
             # query telescope
@@ -134,7 +134,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_moon(self, command, user, parameters):
+    def get_moon(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_moon')
             # query telescope
@@ -149,7 +149,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_focus(self, command, user, parameters):
+    def get_focus(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_focus')
             # query telescope
@@ -161,7 +161,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def set_focus(self, command, user, parameters):
+    def set_focus(self, command, user):
         if not self.is_locked_by(user):
             self.slack.send_message('Please lock the telescope before calling this command.')
             return            
@@ -178,7 +178,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def get_who(self, command, user, parameters):
+    def get_who(self, command, user):
         if not self.is_locked():
             self.slack.send_message('Telescope is not locked.')
             return        
@@ -188,7 +188,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def set_lock(self, command, user, parameters):
+    def set_lock(self, command, user):
         if self.is_locked():
             self.slack.send_message('Telescope is locked by %s.'%self.locked_by())
             return 
@@ -207,7 +207,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def unlock(self, command, user, parameters):
+    def unlock(self, command, user):
         if not self.is_locked():
             self.slack.send_message('Telescope is not locked.')
             return
@@ -225,7 +225,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), e)
 
-    def clear_lock(self, command, user, parameters):    
+    def clear_lock(self, command, user):    
         try:
             telescope_interface = TelescopeInterface('clear_lock')
             # assign values
@@ -283,7 +283,7 @@ class IxchelCommand:
         return True
 
     # https://openweathermap.org/weather-conditions
-    def get_weather(self, command, user, parameters):
+    def get_weather(self, command, user):
         base_url = self.config.get('openweathermap', 'base_url')
         icon_base_url = self.config.get('openweathermap', 'icon_base_url')
         api_key = self.config.get('openweathermap', 'api_key')
@@ -328,8 +328,54 @@ class IxchelCommand:
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
             self.handle_error(command.group(0), e)
 
+    # # https://openweathermap.org/weather-conditions
+    # def get_weather(self, command, user):
+    #     base_url = self.config.get('openweathermap', 'base_url')
+    #     icon_base_url = self.config.get('openweathermap', 'icon_base_url')
+    #     api_key = self.config.get('openweathermap', 'api_key')
+    #     latitude = self.config.get('telescope', 'latitude')
+    #     longitude = self.config.get('telescope', 'longitude')
+    #     # user the OpenWeatherMap API
+    #     url = '%sweather?lat=%s&lon=%s&units=imperial&APPID=%s' % (
+    #         base_url, latitude, longitude, api_key)
+    #     try:
+    #         r = requests.post(url)
+    #     except Exception as e:
+    #         self.logger.error(
+    #             'OpenWeatherMap API request (%s) failed.' % url)
+    #         self.handle_error(command.group(0), e)
+    #         return
+    #     if r.ok:
+    #         data = r.json()
+    #         station = data.get('name', 'Unknown')
+    #         clouds = data.get('clouds').get('all', 0)
+    #         conditions = data.get('weather')[0].get('main', 'Unknown')
+    #         temp = data.get('main').get('temp', 0)
+    #         wind_speed = data.get('wind').get('speed', 0)
+    #         wind_direction = data.get('wind').get('deg', 0)
+    #         humidity = data.get('main').get('humidity', 0)
+    #         icon_url = icon_base_url + \
+    #             data.get('weather')[0].get('icon', '01d') + '.png'
+    #         # send weather report to Slack
+    #         self.slack.send_message(
+    #             "", [{"image_url": "%s" % icon_url, "title": "Current Weather:"}])
+    #         self.slack.send_message('>Station: %s' % station)
+    #         self.slack.send_message('>Conditions: %s' % conditions)
+    #         self.slack.send_message(
+    #             '>Temperature: %.1f° F' % temp)
+    #         self.slack.send_message('>Clouds: %0.1f%%' % clouds)
+    #         self.slack.send_message('>Wind Speed: %.1f mph' % wind_speed)
+    #         self.slack.send_message(
+    #             '>Wind Direction: %.1f°' % wind_direction)
+    #         self.slack.send_message(
+    #             '>Humidity: %.1f%%' % humidity)
+    #     else:
+    #         self.logger.error(
+    #             'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
+    #         self.handle_error(command.group(0), e)
+
     #https://api.weatherbit.io/v2.0/
-    def get_forecast(self, command, user, parameters):
+    def get_forecast(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
         icon_base_url = self.config.get('weatherbit', 'icon_base_url')
         api_key = self.config.get('weatherbit', 'api_key')
@@ -368,9 +414,13 @@ class IxchelCommand:
                     self.slack.send_message(
                         "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
                 time.sleep(1)  # don't trigger the Slack bandwidth threshold
+        else:
+            self.logger.error(
+                'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
+            self.handle_error(command.group(0), None)
 
     # # https://openweathermap.org/forecast5
-    # def get_forecast(self, command, user, parameters):
+    # def get_forecast(self, command, user):
     #     base_url = self.config.get('openweathermap', 'base_url')
     #     icon_base_url = self.config.get('openweathermap', 'icon_base_url')
     #     api_key = self.config.get('openweathermap', 'api_key')

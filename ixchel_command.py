@@ -39,9 +39,8 @@ class IxchelCommand:
         self.slack.send_message(
             '%s does not recognize your command (%s).' % (self.username, text))
 
-    def handle_error(self, text, e):
-        self.logger.error(
-            'Command failed (%s). Exception (%s).' % (text, e))
+    def handle_error(self, text, error):
+        self.logger.error('Command failed (%s). %s' % (text, error))
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
     def find(self, command, user):          
@@ -50,7 +49,7 @@ class IxchelCommand:
             satellites = self.satellite.find(search_string)
             self.slack.send_message('Found %d satellite(s).'%len(satellites))
         except Exception as e:
-            self.handle_error(command.group(0), e)        
+            self.handle_error(command.group(0), 'Exception (%s).'%e)        
 
     def get_help(self, command, user):
         help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
@@ -87,7 +86,7 @@ class IxchelCommand:
             url = self.config.get('misc', 'dss_url').format(ra=ra_decimal, dec=dec_decimal)
             self.slack.send_message("", [{"image_url": "%s" %url, "title": "Sky Position (DSS2):"}])
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def get_clouds(self, command, user):
         try:
@@ -99,7 +98,7 @@ class IxchelCommand:
             # send output to Slack
             self.slack.send_message('Cloud cover is %d%%.' % int(clouds*100))
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def get_sun(self, command, user):
         try:
@@ -112,7 +111,7 @@ class IxchelCommand:
             self.slack.send_message('Sun:')            
             self.slack.send_message('>Altitude: %.1f°' % alt)
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def get_ccd(self, command, user):
         try:
@@ -132,7 +131,7 @@ class IxchelCommand:
             self.slack.send_message('>Temperature: %.1f° C'%tchip)
             self.slack.send_message('>Set Point: %.1f° C'%setpoint)
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def get_moon(self, command, user):
         try:
@@ -147,7 +146,7 @@ class IxchelCommand:
             self.slack.send_message('>Altitude: %.1f°' % alt)
             self.slack.send_message('>Phase: %d%%' % phase)         
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def get_focus(self, command, user):
         try:
@@ -159,7 +158,7 @@ class IxchelCommand:
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def set_focus(self, command, user):
         if not self.is_locked_by(user):
@@ -176,7 +175,7 @@ class IxchelCommand:
             pos = telescope_interface.get_output_value('pos')
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def get_who(self, command, user):
         if not self.is_locked():
@@ -186,7 +185,7 @@ class IxchelCommand:
             self.slack.send_message('Telescope is locked by %s.'%self.locked_by())
             return             
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def set_lock(self, command, user):
         if self.is_locked():
@@ -205,7 +204,7 @@ class IxchelCommand:
             self.slack.send_message(
                 'Telescope is locked.')
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def unlock(self, command, user):
         if not self.is_locked():
@@ -223,7 +222,7 @@ class IxchelCommand:
             self.slack.send_message(
                 'Telescope is unlocked.')
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def clear_lock(self, command, user):    
         try:
@@ -235,7 +234,7 @@ class IxchelCommand:
             self.slack.send_message(
                 'Telescope is unlocked.')
         except Exception as e:
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def locked_by(self):
         try:
@@ -284,49 +283,45 @@ class IxchelCommand:
 
     # https://openweathermap.org/weather-conditions
     def get_weather(self, command, user):
-        base_url = self.config.get('openweathermap', 'base_url')
-        icon_base_url = self.config.get('openweathermap', 'icon_base_url')
-        api_key = self.config.get('openweathermap', 'api_key')
+        base_url = self.config.get('weatherbit', 'base_url')
+        icon_base_url = self.config.get('weatherbit', 'icon_base_url')
+        api_key = self.config.get('weatherbit', 'api_key')
         latitude = self.config.get('telescope', 'latitude')
         longitude = self.config.get('telescope', 'longitude')
         # user the OpenWeatherMap API
-        url = '%sweather?lat=%s&lon=%s&units=imperial&APPID=%s' % (
-            base_url, latitude, longitude, api_key)
+        url = '%scurrent?lat=%s&lon=%s&units=I&key=%s' % (base_url, latitude, longitude, api_key)
         try:
             r = requests.post(url)
+            if r.ok:
+                data = r.json()
+                weather = data.get('data')[0]
+                station = weather.get('city_name')
+                clouds = weather.get('clouds')
+                conditions = weather.get('weather').get('description')
+                temp = weather.get('temp')
+                wind_speed = weather.get('wind_spd')
+                wind_direction = weather.get('wind_cdir')
+                humidity = weather.get('rh')
+                icon_url = icon_base_url + weather.get('weather').get('icon') + '.png'
+                # send weather report to Slack
+                self.slack.send_message(
+                    "", [{"image_url": "%s" % icon_url, "title": "Current Weather:"}])
+                self.slack.send_message('>Station: %s' % station)
+                self.slack.send_message('>Conditions: %s' % conditions)
+                self.slack.send_message(
+                    '>Temperature: %.1f° F' % temp)
+                self.slack.send_message('>Clouds: %0.1f%%' % clouds)
+                self.slack.send_message('>Wind Speed: %.1f mph' % wind_speed)
+                self.slack.send_message(
+                    '>Wind Direction: %s' % wind_direction)
+                self.slack.send_message(
+                    '>Humidity: %.1f%%' % humidity)
+            else:
+                self.handle_error(command.group(0), 'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
         except Exception as e:
             self.logger.error(
-                'OpenWeatherMap API request (%s) failed.' % url)
-            self.handle_error(command.group(0), e)
-            return
-        if r.ok:
-            data = r.json()
-            station = data.get('name', 'Unknown')
-            clouds = data.get('clouds').get('all', 0)
-            conditions = data.get('weather')[0].get('main', 'Unknown')
-            temp = data.get('main').get('temp', 0)
-            wind_speed = data.get('wind').get('speed', 0)
-            wind_direction = data.get('wind').get('deg', 0)
-            humidity = data.get('main').get('humidity', 0)
-            icon_url = icon_base_url + \
-                data.get('weather')[0].get('icon', '01d') + '.png'
-            # send weather report to Slack
-            self.slack.send_message(
-                "", [{"image_url": "%s" % icon_url, "title": "Current Weather:"}])
-            self.slack.send_message('>Station: %s' % station)
-            self.slack.send_message('>Conditions: %s' % conditions)
-            self.slack.send_message(
-                '>Temperature: %.1f° F' % temp)
-            self.slack.send_message('>Clouds: %0.1f%%' % clouds)
-            self.slack.send_message('>Wind Speed: %.1f mph' % wind_speed)
-            self.slack.send_message(
-                '>Wind Direction: %.1f°' % wind_direction)
-            self.slack.send_message(
-                '>Humidity: %.1f%%' % humidity)
-        else:
-            self.logger.error(
-                'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
-            self.handle_error(command.group(0), e)
+                'Weatherbit API request (%s) failed.' % url)
+            self.handle_error(command.group(0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
 
     # # https://openweathermap.org/weather-conditions
     # def get_weather(self, command, user):
@@ -343,7 +338,7 @@ class IxchelCommand:
     #     except Exception as e:
     #         self.logger.error(
     #             'OpenWeatherMap API request (%s) failed.' % url)
-    #         self.handle_error(command.group(0), e)
+    #         self.handle_error(command.group(0), 'Exception (%s).'%e)
     #         return
     #     if r.ok:
     #         data = r.json()
@@ -372,7 +367,7 @@ class IxchelCommand:
     #     else:
     #         self.logger.error(
     #             'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
-    #         self.handle_error(command.group(0), e)
+    #         self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     #https://api.weatherbit.io/v2.0/
     def get_forecast(self, command, user):
@@ -388,36 +383,33 @@ class IxchelCommand:
         url = '%sforecast/hourly?lat=%s&lon=%s&units=I&key=%s' % (base_url, latitude, longitude, api_key)
         try:
             r = requests.post(url)
+            if r.ok:
+                data = r.json()
+                forecasts = data.get('data')
+                station = data.get('city_name')
+                self.slack.send_message('Weather Forecast:')
+                self.slack.send_message('>Station: %s' % station)
+                for forecast in forecasts[:max_forecasts]:
+                    dt = datetime.datetime.strptime(forecast.get('timestamp_utc', '1970-01-01T00:00:00'), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=pytz.utc)
+                    dt_local = dt.astimezone(pytz.timezone(timezone))
+                    icon_url = icon_base_url + forecast.get('weather').get('icon') + '.png'
+                    weather = forecast.get('weather').get('description')
+                    clouds = int(forecast.get('clouds'))
+                    dt_string = '%s (%s)' % (dt_local.strftime(
+                        '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
+                    if clouds > 0:
+                        self.slack.send_message(
+                            "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
+                    else:
+                        self.slack.send_message(
+                            "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
+                    time.sleep(1)  # don't trigger the Slack bandwidth threshold
+            else:
+                self.handle_error(command.group(0), 'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
         except Exception as e:
             self.logger.error(
-                'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
-            self.handle_error(command.group(0), e)
-            return
-        if r.ok:
-            data = r.json()
-            forecasts = data.get('data')
-            station = data.get('city_name', 'Unknown')
-            self.slack.send_message('Weather Forecast:')
-            self.slack.send_message('>Station: %s' % station)
-            for forecast in forecasts[:max_forecasts]:
-                dt = datetime.datetime.strptime(forecast.get('timestamp_utc', '1970-01-01T00:00:00'), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=pytz.utc)
-                dt_local = dt.astimezone(pytz.timezone(timezone))
-                icon_url = icon_base_url + forecast.get('weather').get('icon', 'c01d') + '.png'
-                weather = forecast.get('weather').get('description', 'Unknown')
-                clouds = int(forecast.get('clouds'))
-                dt_string = '%s (%s)' % (dt_local.strftime(
-                    '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
-                if clouds > 0:
-                    self.slack.send_message(
-                        "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
-                else:
-                    self.slack.send_message(
-                        "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
-                time.sleep(1)  # don't trigger the Slack bandwidth threshold
-        else:
-            self.logger.error(
-                'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
-            self.handle_error(command.group(0), None)
+                'Weatherbit API request (%s) failed.' % url)
+            self.handle_error(command.group(0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
 
     # # https://openweathermap.org/forecast5
     # def get_forecast(self, command, user):

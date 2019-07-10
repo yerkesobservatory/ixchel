@@ -8,7 +8,7 @@ import datetime
 import pytz
 from telescope_interface import TelescopeInterface
 from astropy.coordinates import Angle
-from sky import Satellite
+from sky import Satellite, Celestial, SolarSystem
 
 class IxchelCommand:
 
@@ -24,7 +24,9 @@ class IxchelCommand:
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
-        self.satellite = Satellite(ixchel) 
+        self.satellite = Satellite(ixchel)
+        self.celestial = Celestial(ixchel)
+        self.solarSystem = SolarSystem(ixchel)        
 
     def parse(self, message):
         text = message['text'].strip()
@@ -48,6 +50,10 @@ class IxchelCommand:
             search_string = command.group(1)
             satellites = self.satellite.find(search_string)
             self.slack.send_message('Found %d satellite(s).'%len(satellites))
+            celestials = self.celestial.find(search_string)
+            self.slack.send_message('Found %d celestial object(s).'%len(celestials))
+            solarSystems = self.solarSystem.find(search_string)
+            self.slack.send_message('Found %d solar system object(s).'%len(solarSystems))            
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)        
 

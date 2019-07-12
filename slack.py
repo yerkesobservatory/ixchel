@@ -61,6 +61,29 @@ class Slack:
             self.connected = False
             return []
 
+    def send_block_message(self, block_message, channel=None, username=None):
+        if not self.connected:
+            self.logger.warning(
+                'Could not send message (%s). Not connected.' % message)
+            return False
+        # use default values if none sent
+        if channel == None:
+            channel = self.channel
+        if username == None:
+            username = self.username
+        try:
+            self.sc.api_call(
+                "chat.postMessage",
+                channel=channel,
+                blocks=json.loads(block_message),
+                username=username
+            )
+        except Exception as e:
+            self.logger.error(
+                'Could not send block message (%s). Exception (%s).' % (block_message, e))
+            return False
+        return True
+
     def send_message(self, message, attachments=None, channel=None, username=None):
         if not self.connected:
             self.logger.warning(

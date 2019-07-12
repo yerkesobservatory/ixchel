@@ -135,7 +135,7 @@ class SolarSystem:
                 ra = Angle('%fd' % result['RA'][0]).to_string(unit=u.hour, sep=':')
                 dec = Angle('%fd' % result['DEC'][0]).to_string(
                     unit=u.degree, sep=':')
-                solarSystem = SkyObject(id = obj.upper(), name = result['targetname'][0], type = 'Solar System', ra = ra, dec = dec, vmag = result['V'][0])
+                solarSystem = SkyObject(id = obj.upper(), name = result['targetname'][0], type = 'Solar System', ra = ra, dec = dec, vmag = '%.1f'%result['V'][0])
                 solarSystems.append(solarSystem) 
             except Exception as e:
                 pass      
@@ -154,7 +154,7 @@ class Celestial:
         results = Simbad.query_object(search_string.upper().replace('*', ''))
         if results != None:
             for row in range(0, len(results)):
-                celestial = SkyObject(id = results['MAIN_ID'][row], name = results['MAIN_ID'][row], type = 'Celestial', ra = results['RA'][row].replace(' ', ':'), dec = results['DEC'][row].replace(' ', ':'), vmag = results['FLUX_V'][row])
+                celestial = SkyObject(id = results['MAIN_ID'][row], name = results['MAIN_ID'][row].replace(' ', ''), type = 'Celestial', ra = results['RA'][row].replace(' ', ':'), dec = results['DEC'][row].replace(' ', ':'), vmag = '%.1f'%results['FLUX_V'][row])
                 celestials.append(celestial)     
         return celestials
 

@@ -7,8 +7,45 @@ import time
 import datetime
 import pytz
 from telescope_interface import TelescopeInterface
-from astropy.coordinates import Angle
+from astropy.coordinates import SkyCoord, Angle, AltAz, EarthLocation
+import astropy.units as u
+from astropy.time import Time
 from sky import Satellite, Celestial, SolarSystem
+import json
+
+find_format_string = \
+"""[
+	{{
+		"type": "section",
+		"fields": [
+     		{{
+				"type": "mrkdwn",
+				"text": "*{Index}*. `Name`: {Name}"
+            }},
+            {{
+				"type": "mrkdwn",
+				"text": "`Type:` {Type}"
+			}},
+			{{
+				"type": "mrkdwn",
+				"text": "`RA/DEC:` {RA}/{DEC}"
+			}},
+  			{{
+				"type": "mrkdwn",
+				"text": "`Altitude:` {Altitude}"
+			}},
+    		{{
+				"type": "mrkdwn",
+				"text": "`Azimuth:` {Azimuth}"
+			}},
+            {{
+				"type": "mrkdwn",
+				"text": "`Magnitude (V):` {V}"
+			}}
+		]
+	}}
+]"""
+
 
 class IxchelCommand:
 
@@ -26,7 +63,7 @@ class IxchelCommand:
         # init the Sky interface
         self.satellite = Satellite(ixchel)
         self.celestial = Celestial(ixchel)
-        self.solarSystem = SolarSystem(ixchel)        
+        self.solarSystem = SolarSystem(ixchel)
 
     def parse(self, message):
         text = message['text'].strip()
@@ -45,15 +82,39 @@ class IxchelCommand:
         self.logger.error('Command failed (%s). %s' % (text, error))
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
-    def find(self, command, user):          
+    def find(self, command, user):
         try:
             search_string = command.group(1)
             satellites = self.satellite.find(search_string)
-            self.slack.send_message('Found %d satellite(s).'%len(satellites))
             celestials = self.celestial.find(search_string)
-            self.slack.send_message('Found %d celestial object(s).'%len(celestials))
             solarSystems = self.solarSystem.find(search_string)
-            self.slack.send_message('Found %d solar system object(s).'%len(solarSystems))            
+            # process total search restults
+            skyObjects = satellites + celestials + solarSystems
+            telescope = EarthLocation(lat=float(self.config.get('telescope', 'latitude'))*u.deg, lon=float(
+                self.config.get('telescope', 'longitude'))*u.deg, height=float(self.config.get('telescope', 'elevation'))*u.m)
+            if len(skyObjects) > 0:
+                report = ''
+                index = 1
+                # calculate local time of observatory
+                telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
+                for skyObject in skyObjects:
+                    self.logger.debug(skyObject)
+                    # create SkyCoord instance from RA and DEC
+                    c = SkyCoord(skyObject.ra, skyObject.dec, unit=(u.hour, u.deg))
+                    # transform RA,DEC to alt, az for this object from the observatory
+                    altaz = c.transform_to(
+                        AltAz(obstime=telescope_now, location=telescope))
+                    # report += '%d.\t%s object (%s) found at RA=%s, DEC=%s, ALT=%f, AZ=%f, VMAG=%s.\n' % (
+                    #    index, skyObject.type, skyObject.name, skyObject.ra, skyObject.dec, altaz.alt.degree, altaz.az.degree, skyObject.vmag)
+                    report = find_format_string.format(Index=str(index), Name=skyObject.name, Type=skyObject.type, RA=skyObject.ra,
+                                                       DEC=skyObject.dec, Altitude='%.1f°' % altaz.alt.degree, Azimuth='%.1f°' % altaz.az.degree, V=skyObject.vmag)
+                    self.slack.send_block_message(report)
+                    index += 1
+                # report = report.replace("--", "N/A")
+                # self.slack.send_message(report)
+            else:
+                self.slack.send_message(
+                    'Sorry, Itzamna knows all but *still* could not find "%s".' % search_string)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)        
 
@@ -86,7 +147,7 @@ class IxchelCommand:
                 self.slack.send_message('>Slewing? Yes')
             else:
                 self.slack.send_message('>Slewing? No')
-            #get a DSS image of this part of the sky
+            # get a DSS image of this part of the sky
             ra_decimal = Angle(ra + '  hours').hour
             dec_decimal = Angle(dec + '  degrees').degree
             url = self.config.get('misc', 'dss_url').format(ra=ra_decimal, dec=dec_decimal)
@@ -375,7 +436,7 @@ class IxchelCommand:
     #             'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
     #         self.handle_error(command.group(0), 'Exception (%s).'%e)
 
-    #https://api.weatherbit.io/v2.0/
+    # https://api.weatherbit.io/v2.0/
     def get_forecast(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
         icon_base_url = self.config.get('weatherbit', 'icon_base_url')

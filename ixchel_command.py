@@ -50,6 +50,7 @@ find_format_string = \
 class IxchelCommand:
 
     commands = []
+    skyObjects = []
 
     def __init__(self, ixchel):
         self.logger = logging.getLogger('IxchelCommand')
@@ -82,6 +83,20 @@ class IxchelCommand:
         self.logger.error('Command failed (%s). %s' % (text, error))
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
+    def plot(self, command, user):
+        #get object id; assume 1 if none
+        if command.group(1):
+            id = int(command.group(1).strip())
+        else:
+            id = 1
+        #ensure object id is valid
+        if id < 1 or id > len(self.skyObjects):
+            self.slack.send_message('%s does not recognize that object id (%d).' % (self.config.get('slack', 'username'), id))
+            return
+        #find corresponding object
+        skyObject = self.skyObjects[id-1]
+        self.slack.send_message('Name of object is %s.'%skyObject.name)    
+
     def find(self, command, user):
         try:
             search_string = command.group(1)
@@ -89,16 +104,15 @@ class IxchelCommand:
             celestials = self.celestial.find(search_string)
             solarSystems = self.solarSystem.find(search_string)
             # process total search restults
-            skyObjects = satellites + celestials + solarSystems
+            self.skyObjects = satellites + celestials + solarSystems
             telescope = EarthLocation(lat=float(self.config.get('telescope', 'latitude'))*u.deg, lon=float(
                 self.config.get('telescope', 'longitude'))*u.deg, height=float(self.config.get('telescope', 'elevation'))*u.m)
-            if len(skyObjects) > 0:
+            if len(self.skyObjects) > 0:
                 report = ''
                 index = 1
                 # calculate local time of observatory
                 telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
-                for skyObject in skyObjects:
-                    self.logger.debug(skyObject)
+                for skyObject in self.skyObjects:
                     # create SkyCoord instance from RA and DEC
                     c = SkyCoord(skyObject.ra, skyObject.dec, unit=(u.hour, u.deg))
                     # transform RA,DEC to alt, az for this object from the observatory
@@ -110,11 +124,9 @@ class IxchelCommand:
                                                        DEC=skyObject.dec, Altitude='%.1f°' % altaz.alt.degree, Azimuth='%.1f°' % altaz.az.degree, V=skyObject.vmag)
                     self.slack.send_block_message(report)
                     index += 1
-                # report = report.replace("--", "N/A")
-                # self.slack.send_message(report)
             else:
                 self.slack.send_message(
-                    'Sorry, Itzamna knows all but *still* could not find "%s".' % search_string)
+                    'Sorry, %s knows all but *still* could not find "%s".' % (self.config.get('slack', 'username'), search_string))
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)        
 
@@ -536,6 +548,13 @@ class IxchelCommand:
                 'regex': r'^\\find\s(.+)$',
                 'function': self.find,
                 'description': '`\\find <object>` finds <object> in the sky (add wildcard `*` to widen the search)',
+                'hide': False
+            },
+
+            {
+                'regex': r'^\\plot(\s[0-9]+)?$',
+                'function': self.plot,
+                'description': '`\\plot <object #>` shows if/when <object> is observable (run `\\find` first!)',
                 'hide': False
             },
 

@@ -7,7 +7,7 @@ import time
 import datetime
 import pytz
 from telescope_interface import TelescopeInterface
-from astropy.coordinates import SkyCoord, Angle, AltAz, EarthLocation
+from astropy.coordinates import SkyCoord, Angle, AltAz
 import astropy.units as u
 from astropy.time import Time
 from sky import Satellite, Celestial, SolarSystem
@@ -54,6 +54,7 @@ class IxchelCommand:
 
     def __init__(self, ixchel):
         self.logger = logging.getLogger('IxchelCommand')
+        self.ixchel = ixchel
         self.config = ixchel.config
         self.channel = self.config.get('slack', 'channel')
         self.username = self.config.get('slack', 'username')
@@ -95,7 +96,11 @@ class IxchelCommand:
             return
         #find corresponding object
         skyObject = self.skyObjects[id-1]
-        self.slack.send_message('Name of object is %s.'%skyObject.name)    
+        if skyObject.type == 'Solar System':
+            self.solarSystem.plot(skyObject)
+        elif skyObject.type == "Celestial":
+            self.celestial.plot(skyObject)            
+        #self.slack.send_message('Name of object is %s.'%skyObject.name)    
 
     def find(self, command, user):
         try:
@@ -105,8 +110,7 @@ class IxchelCommand:
             solarSystems = self.solarSystem.find(search_string)
             # process total search restults
             self.skyObjects = satellites + celestials + solarSystems
-            telescope = EarthLocation(lat=float(self.config.get('telescope', 'latitude'))*u.deg, lon=float(
-                self.config.get('telescope', 'longitude'))*u.deg, height=float(self.config.get('telescope', 'elevation'))*u.m)
+            telescope = self.ixchel.telescope.earthLocation
             if len(self.skyObjects) > 0:
                 report = ''
                 index = 1

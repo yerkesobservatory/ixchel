@@ -1,10 +1,10 @@
-from slackclient import SlackClient
 import logging
 import requests
 import json
 import datetime
 import time
 import os
+from slackclient import SlackClient
 
 
 class Slack:

@@ -44,7 +44,7 @@ class SolarSystem:
         sun_altaz_now_to_tomorrow = get_sun(
             times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
         plt.scatter(oneDay, object_altaz_now_to_tomorrow.alt,
-                    c=object_altaz_now_to_tomorrow.az, label=solarSystemObject.name, lw=0, s=8,
+                    c=object_altaz_now_to_tomorrow.az, label=solarSystemObject.name, lw=0, s=20,
                     cmap='viridis')
         plt.fill_between(oneDay.to('hr').value, 0, 90,
                          sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
@@ -200,7 +200,7 @@ class Celestial:
         sun_altaz_now_to_tomorrow = get_sun(
             times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
         plt.scatter(oneDay, object_altaz_now_to_tomorrow.alt,
-                    c=object_altaz_now_to_tomorrow.az, label=celestialObject.name, lw=0, s=8,
+                    c=object_altaz_now_to_tomorrow.az, label=celestialObject.name, lw=0, s=20,
                     cmap='viridis')
         plt.fill_between(oneDay.to('hr').value, 0, 90,
                          sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
@@ -268,6 +268,41 @@ class Satellite:
         self.logger.debug(
             'Loaded %d satellite TLE(s) into the database.' % len(db))
         return db
+
+    def plot(self, satellite):
+        now = Time(datetime.datetime.utcnow(), scale='utc')
+        oneDay = np.linspace(0, 24, 1000)*u.hour
+        times_now_to_tomorrow = now + oneDay
+        frame_now_to_tomorrow = AltAz(
+            obstime=times_now_to_tomorrow, location=self.ixchel.telescope.earthLocation)
+        sun_altaz_now_to_tomorrow = get_sun(
+            times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
+        alt = []
+        az = []
+        sat_ephem = ephem.readtle(satellite.id, satellite.tle1, satellite.tle2)
+        for time_now_to_tomorrow in times_now_to_tomorrow:
+            self.observer.date = time_now_to_tomorrow.tt.datetime
+            sat_ephem.compute(self.observer)
+            alt.append(math.degrees(float(repr(sat_ephem.alt))))
+            az.append(math.degrees(float(repr(sat_ephem.az))))
+        plt.scatter(oneDay, alt,
+                    c=az, label=satellite.name, lw=0, s=20,
+                    cmap='viridis')
+        plt.fill_between(oneDay.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
+        plt.fill_between(oneDay.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -18*u.deg, color='k', zorder=0)
+        plt.colorbar().set_label('Azimuth [deg]')
+        plt.legend(loc='best')
+        plt.xlim(0, 24)
+        plt.xticks(np.arange(13)*2)
+        plt.ylim(0, 90)
+        plt.xlabel('Hours [from now]')
+        plt.ylabel('Altitude [deg]')
+        plot_png_file_path = self.config.get('misc', 'plot_file_path', 'plot.png') + 'plot.png'
+        plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
+        plt.close()
+        self.ixchel.slack.send_file(plot_png_file_path, '%s Visibility' % satellite.name)      
 
     def find(self, search_string):
         satellites = []

@@ -12,6 +12,8 @@ import astropy.units as u
 from astropy.time import Time
 from sky import Satellite, Celestial, SolarSystem
 import json
+import random
+import string
 
 find_format_string = \
 """[
@@ -85,49 +87,58 @@ class IxchelCommand:
         self.slack.send_message('Error. Command (%s) failed.' % text)
 
     def plot(self, command, user):
-        #get object id; assume 1 if none
+        # get object id; assume 1 if none
         if command.group(1):
             id = int(command.group(1).strip())
         else:
             id = 1
-        #ensure object id is valid
+        # ensure object id is valid
         if id < 1 or id > len(self.skyObjects):
-            self.slack.send_message('%s does not recognize that object id (%d).' % (self.config.get('slack', 'username'), id))
+            self.slack.send_message('%s does not recognize that object id (%d).' % (
+                self.config.get('slack', 'username'), id))
             return
-        #find corresponding object
+        # find corresponding object
         skyObject = self.skyObjects[id-1]
+        self.slack.send_message('%s is calculating when "%s" is observable from your location. Please wait...' % (self.config.get('slack', 'username'), skyObject.name))
         if skyObject.type == 'Solar System':
             self.solarSystem.plot(skyObject)
         elif skyObject.type == "Celestial":
-            self.celestial.plot(skyObject)            
-        #self.slack.send_message('Name of object is %s.'%skyObject.name)    
+            self.celestial.plot(skyObject)
+        elif skyObject.type == "Satellite":
+            self.satellite.plot(skyObject)
+        # self.slack.send_message('Name of object is %s.'%skyObject.name)
 
     def find(self, command, user):
         try:
-            search_string = command.group(1)
-            satellites = self.satellite.find(search_string)
-            celestials = self.celestial.find(search_string)
-            solarSystems = self.solarSystem.find(search_string)
+            search_string=command.group(1)
+            self.slack.send_message('%s is searching the cosmos for "%s". Please wait...' % (
+                self.config.get('slack', 'username'), search_string))
+            satellites=self.satellite.find(search_string)
+            celestials=self.celestial.find(search_string)
+            solarSystems=self.solarSystem.find(search_string)
             # process total search restults
-            self.skyObjects = satellites + celestials + solarSystems
-            telescope = self.ixchel.telescope.earthLocation
+            self.skyObjects=satellites + celestials + solarSystems
+            telescope=self.ixchel.telescope.earthLocation
             if len(self.skyObjects) > 0:
-                report = ''
-                index = 1
+                report=''
+                index=1
                 # calculate local time of observatory
-                telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
+                telescope_now=Time(datetime.datetime.utcnow(), scale = 'utc')
+                self.slack.send_message('%s found %d match(es):' % (self.config.get('slack', 'username'), len(self.skyObjects)))               
                 for skyObject in self.skyObjects:
                     # create SkyCoord instance from RA and DEC
-                    c = SkyCoord(skyObject.ra, skyObject.dec, unit=(u.hour, u.deg))
+                    c=SkyCoord(skyObject.ra, skyObject.dec,
+                               unit = (u.hour, u.deg))
                     # transform RA,DEC to alt, az for this object from the observatory
-                    altaz = c.transform_to(
+                    altaz=c.transform_to(
                         AltAz(obstime=telescope_now, location=telescope))
                     # report += '%d.\t%s object (%s) found at RA=%s, DEC=%s, ALT=%f, AZ=%f, VMAG=%s.\n' % (
                     #    index, skyObject.type, skyObject.name, skyObject.ra, skyObject.dec, altaz.alt.degree, altaz.az.degree, skyObject.vmag)
-                    report = find_format_string.format(Index=str(index), Name=skyObject.name, Type=skyObject.type, RA=skyObject.ra,
-                                                       DEC=skyObject.dec, Altitude='%.1f°' % altaz.alt.degree, Azimuth='%.1f°' % altaz.az.degree, V=skyObject.vmag)
+                    report = find_format_string.format(Index = str(index), Name = skyObject.name, Type =skyObject.type, RA=skyObject.ra,
+                                                       DEC = skyObject.dec, Altitude = '%.1f°' % altaz.alt.degree, Azimuth ='%.1f°' % altaz.az.degree, V=skyObject.vmag)
                     self.slack.send_block_message(report)
                     index += 1
+                    time.sleep(1)  # don't trigger the Slack bandwidth threshold
             else:
                 self.slack.send_message(
                     'Sorry, %s knows all but *still* could not find "%s".' % (self.config.get('slack', 'username'), search_string))
@@ -364,7 +375,17 @@ class IxchelCommand:
             self.logger.error('Could not get telescope lock info. Exception (%s).'%e)
         return True
 
-    # https://openweathermap.org/weather-conditions
+    def get_clearsky(self, command, user):
+        try:
+            clearsky_urls = self.config.get('misc', 'clearsky_urls').split('\n')
+            for clearsky_url in clearsky_urls:
+                #hack to keep images up to date
+                random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
+                self.slack.send_message('', [{'image_url': '%s?random_string=%s' % (clearsky_url, random_string), 'title': ''}])
+        except Exception as e:
+            self.handle_error(command.group(0), 'Clearsky API request failed. Exception (%s).' % (e))        
+
+
     def get_weather(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
         icon_base_url = self.config.get('weatherbit', 'icon_base_url')
@@ -658,6 +679,13 @@ class IxchelCommand:
                 'function': self.get_ccd,
                 'description': '`\\ccd` shows CCD information',
                 'hide': False
-            }
+            },
+
+            {
+                'regex': r'^\\clearsky$',
+                'function': self.get_clearsky,
+                'description': '`\\clearsky` shows Clear Sky chart(s)',
+                'hide': False
+            } 
 
         ]

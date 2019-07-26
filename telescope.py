@@ -117,6 +117,16 @@ class SSH:
                 'SSH command failed. Exception (%s).' % e)
         return result
 
+    def get_file(self, remote_path, local_path):
+        try:
+            sftp = self.ssh.open_sftp()
+            sftp.get(remote_path, local_path)
+            sftp.close()
+        except Exception as e:
+            self.logger.error('SFTP failed. Exception (%s).' % e)
+            return False
+        return True
+
 
 class Telescope:
 
@@ -193,6 +203,9 @@ class Telescope:
                 self.logger.error(
                     'Command (%s) failed. Exception (%s).')
             return result
+
+    def get_file(self, remote_path, local_path):
+        return self.ssh.get_file(remote_path, local_path)
 
     # Generic getter is the standard for all SEO get commands
     # To support future telescope interfaces,

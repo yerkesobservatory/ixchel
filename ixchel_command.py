@@ -77,14 +77,17 @@ class IxchelCommand:
                 user = self.slack.get_user_by_id(message.get('user'))
                 self.logger.debug('Received the command: %s from %s.' % (
                     command.group(0), user.get('name')))
-                cmd['function'](command, user)
+                try:
+                    cmd['function'](command, user)
+                except Exception as e:
+                    self.handle_error(command.group(0), 'Exception (%s).'%e)  
                 return
         self.slack.send_message(
             '%s does not recognize your command (%s).' % (self.username, text))
 
-    def handle_error(self, text, error):
-        self.logger.error('Command failed (%s). %s' % (text, error))
-        self.slack.send_message('Error. Command (%s) failed.' % text)
+    def handle_error(self, command, error):
+        self.logger.error('Command failed (%s). %s' % (command, error))
+        self.slack.send_message('Error. Command (%s) failed.' % command)
 
     def plot(self, command, user):
         # get object id; assume 1 if none
@@ -377,14 +380,35 @@ class IxchelCommand:
 
     def get_clearsky(self, command, user):
         try:
-            clearsky_urls = self.config.get('misc', 'clearsky_urls').split('\n')
-            for clearsky_url in clearsky_urls:
+            clearsky_links = self.config.get('misc', 'clearsky_links').split('\n')
+            for clearsky_link in clearsky_links:
+                (title, url) = clearsky_link.split('|', 2)
                 #hack to keep images up to date
                 random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
-                self.slack.send_message('', [{'image_url': '%s?random_string=%s' % (clearsky_url, random_string), 'title': ''}])
+                self.slack.send_message('', [{'image_url': '%s?random_string=%s' % (url, random_string), 'title': '%s'%title}])
+                time.sleep(1)
         except Exception as e:
-            self.handle_error(command.group(0), 'Clearsky API request failed. Exception (%s).' % (e))        
+            self.handle_error(command.group(0), 'Exception (%s).' % (e))        
 
+    def get_skycam(self, command, user):
+        try:
+            #get sky image from SEO camera
+            spacam_remote_file_path = self.config.get('telescope', 'spacam_remote_file_path')
+            spacam_local_file_path = self.config.get('telescope', 'spacam_local_file_path')
+            if self.telescope.get_file(spacam_remote_file_path, spacam_local_file_path):
+                self.slack.send_file(spacam_local_file_path, 'El Verano, CA (SEO Spa-Cam)') 
+            else:
+                self.logger.error('Failed to obtain image from observatory camera.')
+            #get sky images from Internet
+            skycam_links = self.config.get('misc', 'skycam_links').split('\n')
+            for skycam_link in skycam_links:
+                (title, url) = skycam_link.split('|', 2)
+                #hack to keep images up to date
+                random_string = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
+                self.slack.send_message('', [{'image_url': '%s?random_string=%s' % (url, random_string), 'title': '%s'%title}])
+                time.sleep(1)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % (e)) 
 
     def get_weather(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
@@ -423,8 +447,6 @@ class IxchelCommand:
             else:
                 self.handle_error(command.group(0), 'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
         except Exception as e:
-            self.logger.error(
-                'Weatherbit API request (%s) failed.' % url)
             self.handle_error(command.group(0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
 
     # # https://openweathermap.org/weather-conditions
@@ -511,8 +533,6 @@ class IxchelCommand:
             else:
                 self.handle_error(command.group(0), 'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
         except Exception as e:
-            self.logger.error(
-                'Weatherbit API request (%s) failed.' % url)
             self.handle_error(command.group(0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
 
     # # https://openweathermap.org/forecast5
@@ -686,6 +706,13 @@ class IxchelCommand:
                 'function': self.get_clearsky,
                 'description': '`\\clearsky` shows Clear Sky chart(s)',
                 'hide': False
-            } 
+            },
+
+            {
+                'regex': r'^\\skycam$',
+                'function': self.get_skycam,
+                'description': '`\\skycam` shows skycam image(s)',
+                'hide': False
+            }
 
         ]

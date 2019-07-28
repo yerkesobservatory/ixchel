@@ -391,15 +391,26 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))        
 
     def get_skycam(self, command, user):
+        #get sky image from SEO camera
         try:
-            #get sky image from SEO camera
-            spacam_remote_file_path = self.config.get('telescope', 'spacam_remote_file_path')
-            spacam_local_file_path = self.config.get('telescope', 'spacam_local_file_path')
-            if self.telescope.get_file(spacam_remote_file_path, spacam_local_file_path):
-                self.slack.send_file(spacam_local_file_path, 'El Verano, CA (SEO Spa-Cam)') 
+            telescope_interface = TelescopeInterface('get_skycam')
+            # assign input
+            telescope_interface.set_input_value('skycam_remote_file_path', self.config.get('telescope', 'skycam_remote_file_path'))
+            telescope_interface.set_input_value('skycam_local_file_path', self.config.get('telescope', 'skycam_local_file_path'))           
+            # create a command that applies the specified values
+            self.telescope.get_skycam(telescope_interface)
+            if telescope_interface.get_output_value('success'):
+                success = self.telescope.get_file(self.config.get('telescope', 'skycam_remote_file_path'), self.config.get('telescope', 'skycam_local_file_path'))
+                if success:
+                    self.slack.send_file(self.config.get('telescope', 'skycam_local_file_path'), 'El Verano, CA (SEO Spa-Cam)')
+                else:
+                    self.logger.error('Failed to obtain image from observatory camera.')                       
             else:
-                self.logger.error('Failed to obtain image from observatory camera.')
-            #get sky images from Internet
+                self.logger.error('Failed to obtain image from observatory camera.')               
+        except Exception as e:
+            self.logger.error('Failed to obtain image from observatory camera. Exception (%s).' % (e)) 
+        #get sky images from Internet
+        try:    
             skycam_links = self.config.get('misc', 'skycam_links').split('\n')
             for skycam_link in skycam_links:
                 (title, url) = skycam_link.split('|', 2)
@@ -616,6 +627,20 @@ class IxchelCommand:
                 'description': '`\\focus <integer>` sets the telescope focus position to <integer>',
                 'hide': False
             },
+
+            # {
+            #     'regex': r'^\\crack$',
+            #     'function': self.open_observatory,
+            #     'description': '`\\crack opens the observatory',
+            #     'hide': False
+            # },
+
+            # {
+            #     'regex': r'^\\squeeze$',
+            #     'function': self.close_observatory,
+            #     'description': '`\\squeeze closes the observatory',
+            #     'hide': False
+            # },            
 
             {
                 'regex': r'^\\forecast$',

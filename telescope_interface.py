@@ -34,6 +34,24 @@ telescope_interfaces = {
             },
         }
     },
+    'get_skycam': {
+        'command': 'rm -f {skycam_remote_file_path}; spacam {skycam_remote_file_path}; [ -e "{skycam_remote_file_path}" ] && echo 1 || echo 0',
+        'inputs': {
+            'skycam_remote_file_path': {
+                'value': None
+            },
+            'skycam_local_file_path': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'success': {
+                'regex': r'^[01]$',
+                'value': None,
+                'type': int
+            },
+        }
+    },
     'get_sun': {
         'command': 'sun',
         'inputs': {},

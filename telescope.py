@@ -118,6 +118,13 @@ class SSH:
         return result
 
     def get_file(self, remote_path, local_path):
+        # test connection
+        try:
+            self.ssh.exec_command('echo its alive')  # test the connection
+        except Exception as e:
+            self.logger.warning(
+                'SSH command failed. Exception (%s). Reconnecting...' % e)
+            self.connect()
         try:
             sftp = self.ssh.open_sftp()
             sftp.get(remote_path, local_path)
@@ -210,6 +217,7 @@ class Telescope:
     # Generic getter is the standard for all SEO get commands
     # To support future telescope interfaces,
     # these will be called by the *explicit* getter
+
     def getter(self, interface):
         results = self.command(interface.get_command(),
                                interface.is_background())
@@ -226,6 +234,9 @@ class Telescope:
         result = results['response']
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
+
+    def get_skycam(self, interface):
+        self.setter(interface)
 
     def get_precipitation(self, interface):
         self.getter(interface)

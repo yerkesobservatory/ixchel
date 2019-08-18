@@ -10,7 +10,7 @@ from telescope_interface import TelescopeInterface
 from astropy.coordinates import SkyCoord, Angle, AltAz
 import astropy.units as u
 from astropy.time import Time
-from sky import Satellite, Celestial, SolarSystem
+from sky import Satellite, Celestial, SolarSystem, Coordinate
 import json
 import random
 import string
@@ -68,6 +68,7 @@ class IxchelCommand:
         self.satellite = Satellite(ixchel)
         self.celestial = Celestial(ixchel)
         self.solarSystem = SolarSystem(ixchel)
+        self.coordinate = Coordinate(ixchel)
 
     def parse(self, message):
         text = message['text'].strip()
@@ -88,6 +89,11 @@ class IxchelCommand:
     def handle_error(self, command, error):
         self.logger.error('Command failed (%s). %s' % (command, error))
         self.slack.send_message('Error. Command (%s) failed.' % command)
+
+    def plot_ra_dec(self, command, user):
+        ra = command.group(1)
+        dec = command.group(2)
+        self.coordinate.plot(ra, dec)
 
     def plot(self, command, user):
         # get object id; assume 1 if none
@@ -277,12 +283,20 @@ class IxchelCommand:
     def get_image(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_image')
+            # assign values
+            exposure = int(command.group(1))
+            telescope_interface.set_input_value('exposure', exposure)
+            bin = int(command.group(2))
+            telescope_interface.set_input_value('bin', bin)
+            outfile = image_path + '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (target_name, filter, exposure, binning, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), 'itzamna', 0)
             # query telescope
             self.telescope.get_image(telescope_interface)
             ## assign values
-            #pos = telescope_interface.get_output_value('pos')
-            # send output to Slack
-            #self.slack.send_message('Focus position is %d.' % pos)
+            error = telescope_interface.get_output_value('error')
+            if error == '':
+                self.slack.send_message('Image command completed successfully.')
+            else:
+                self.handle_error(command.group(0), 'Error (%s).'%error)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
@@ -623,8 +637,15 @@ class IxchelCommand:
                 {
                     'regex': r'^\\plot(\s[0-9]+)?$',
                     'function': self.plot,
-                    'description': '`\\plot <object #>` shows if/when <object> is observable (run `\\find` first!)',
+                    'description': '`\\plot <object #> or \\plot <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` shows if/when object (run `\\find` first!) or coordinate is observable',
                     'hide': False
+                },
+
+                {
+                    'regex': r'^\\plot(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)$', #ra dec regex should be better
+                    'function': self.plot_ra_dec,
+                    'description': '`\\plot <RA> <DEC>` shows if/when coordinate is observable',
+                    'hide': True
                 },
 
                 {

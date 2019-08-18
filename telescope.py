@@ -75,9 +75,9 @@ class SSH:
                 self.logger.error('Command (%s) returned error (%s).' % (
                     command, result['response']))
             else:
-                result['response'] = 'Invalid response.'
-                self.logger.error(
-                    'Command (%s) returned invalid response.' % (command))
+                result['response'] = ''
+                self.logger.warning(
+                    'Command (%s) returned no response.' % (command))
         except Exception as e:
             self.logger.error(
                 'SSH command failed. Exception (%s).' % e)
@@ -109,9 +109,9 @@ class SSH:
                 self.logger.error('Command (%s) returned error (%s).' % (
                     command, result['response']))
             else:
-                result['response'] = 'Invalid response.'
-                self.logger.error(
-                    'Command (%s) returned invalid response.' % (command))
+                result['response'] = ''
+                self.logger.warning(
+                    'Command (%s) returned no response.' % (command))
         except Exception as e:
             self.logger.error(
                 'SSH command failed. Exception (%s).' % e)
@@ -239,7 +239,7 @@ class Telescope:
         self.setter(interface)
 
     def get_image(self, interface):
-        self.logger.debug('get_image')
+        self.setter(interface)
 
     def get_precipitation(self, interface):
         self.getter(interface)

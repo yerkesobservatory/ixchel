@@ -4,9 +4,22 @@ import re
 telescope_interfaces = {
     # done ccd_status nrow=2048 ncol=2048 readtime=8 tchip=-17.8 setpoint=-20.0 name=ProLine_PL230 darktime=41668 pixel=15.0 rot=180 drive=100
     'get_image': {
-        'command': 'tx slit',
-        'inputs': {},
-        'outputs': {}
+        'command': 'image time={exposure} bin={bin} outfile=/tmp/out.fits',
+        'inputs': {
+            'exposure': {
+                'value': None
+            },
+            'bin': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'error': {
+                'regex': r'^.*$',
+                'value': None,
+                'type': str
+            },
+        }
     },
     'get_ccd': {
         'command': 'tx ccd_status',

@@ -179,6 +179,45 @@ class SolarSystem:
                 pass      
         return solarSystemObjects
 
+class Coordinate:
+
+    def __init__(self, ixchel):
+        self.logger = logging.getLogger('Coordinate')
+        self.ixchel = ixchel
+        self.config = ixchel.config
+
+    def plot(self, ra, dec):
+        #get current coordinates
+        c = SkyCoord(ra, dec, unit=(u.hour, u.deg))
+        # look 24 hours into the future
+        now = Time(datetime.datetime.utcnow(), scale='utc')
+        oneDay = np.linspace(0, 24, 1000)*u.hour
+        times_now_to_tomorrow = now + oneDay
+        frame_now_to_tomorrow = AltAz(
+            obstime=times_now_to_tomorrow, location=self.ixchel.telescope.earthLocation)
+        object_altaz_now_to_tomorrow = c.transform_to(frame_now_to_tomorrow)
+        sun_altaz_now_to_tomorrow = get_sun(
+            times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
+        plt.scatter(oneDay, object_altaz_now_to_tomorrow.alt,
+                    c=object_altaz_now_to_tomorrow.az, label='%s / %s'%(ra, dec), lw=0, s=20,
+                    cmap='viridis')
+        plt.fill_between(oneDay.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
+        plt.fill_between(oneDay.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -18*u.deg, color='k', zorder=0)
+        plt.colorbar().set_label('Azimuth [deg]')
+        plt.legend(loc='best')
+        plt.xlim(0, 24)
+        plt.xticks(np.arange(13)*2)
+        plt.ylim(0, 90)
+        plt.xlabel('Hours [from now]')
+        plt.ylabel('Altitude [deg]')
+        plot_png_file_path = self.config.get('misc', 'plot_file_path', 'plot.png') + 'plot.png'
+        plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
+        plt.close()
+        self.ixchel.slack.send_file(plot_png_file_path, 'Celestial Coordinates Visibility')     
+
+
 class Celestial:
 
     def __init__(self, ixchel):

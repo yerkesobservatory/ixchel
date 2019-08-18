@@ -274,6 +274,18 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
+    def get_image(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_image')
+            # query telescope
+            self.telescope.get_image(telescope_interface)
+            ## assign values
+            #pos = telescope_interface.get_output_value('pos')
+            # send output to Slack
+            #self.slack.send_message('Focus position is %d.' % pos)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
+
     def get_who(self, command, user):
         if not self.is_locked():
             self.slack.send_message('Telescope is not locked.')
@@ -598,146 +610,155 @@ class IxchelCommand:
     #         self.handle_error(command.group(0), e)
 
     def init_commands(self):
-        self.commands = [
+        try:
+            self.logger.debug(r'^\\image\s([0-9]+)\s(1|2)\s(%s)$'%'|'.join(self.config.get('telescope', 'filters').split('\n')))
+            self.commands = [
+                {
+                    'regex': r'^\\find\s(.+)$',
+                    'function': self.find,
+                    'description': '`\\find <object>` finds <object> in the sky (add wildcard `*` to widen the search)',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\find\s(.+)$',
-                'function': self.find,
-                'description': '`\\find <object>` finds <object> in the sky (add wildcard `*` to widen the search)',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\plot(\s[0-9]+)?$',
+                    'function': self.plot,
+                    'description': '`\\plot <object #>` shows if/when <object> is observable (run `\\find` first!)',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\plot(\s[0-9]+)?$',
-                'function': self.plot,
-                'description': '`\\plot <object #>` shows if/when <object> is observable (run `\\find` first!)',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\image\s([0-9]+)\s(1|2)\s(%s)$'%'|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'function': self.get_image,
+                    'description': '`\\image <exposure> <binning> <filter>` takes an image',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\focus$',
-                'function': self.get_focus,
-                'description': '`\\focus` shows the telescope focus position',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\focus$',
+                    'function': self.get_focus,
+                    'description': '`\\focus` shows the telescope focus position',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\focus\s([0-9]+)$',
-                'function': self.set_focus,
-                'description': '`\\focus <integer>` sets the telescope focus position to <integer>',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\focus\s([0-9]+)$',
+                    'function': self.set_focus,
+                    'description': '`\\focus <integer>` sets the telescope focus position to <integer>',
+                    'hide': False
+                },
 
-            # {
-            #     'regex': r'^\\crack$',
-            #     'function': self.open_observatory,
-            #     'description': '`\\crack opens the observatory',
-            #     'hide': False
-            # },
+                # {
+                #     'regex': r'^\\crack$',
+                #     'function': self.open_observatory,
+                #     'description': '`\\crack opens the observatory',
+                #     'hide': False
+                # },
 
-            # {
-            #     'regex': r'^\\squeeze$',
-            #     'function': self.close_observatory,
-            #     'description': '`\\squeeze closes the observatory',
-            #     'hide': False
-            # },            
+                # {
+                #     'regex': r'^\\squeeze$',
+                #     'function': self.close_observatory,
+                #     'description': '`\\squeeze closes the observatory',
+                #     'hide': False
+                # },            
 
-            {
-                'regex': r'^\\forecast$',
-                'function': self.get_forecast,
-                'description': '`\\forecast` shows the hourly weather forecast',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\forecast$',
+                    'function': self.get_forecast,
+                    'description': '`\\forecast` shows the hourly weather forecast',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\help$',
-                'function': self.get_help,
-                'description': '`\\help` shows this message',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\help$',
+                    'function': self.get_help,
+                    'description': '`\\help` shows this message',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\lock$',
-                'function': self.set_lock,
-                'description': '`\\lock` locks the telescope for use by you',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\lock$',
+                    'function': self.set_lock,
+                    'description': '`\\lock` locks the telescope for use by you',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\unlock$',
-                'function': self.unlock,
-                'description': '`\\unlock` unlocks the telescope for use by others',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\unlock$',
+                    'function': self.unlock,
+                    'description': '`\\unlock` unlocks the telescope for use by others',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\clear$',
-                'function': self.clear_lock,
-                'description': '`\\clear` clears the telescope lock',
-                'hide': True
-            },
+                {
+                    'regex': r'^\\clear$',
+                    'function': self.clear_lock,
+                    'description': '`\\clear` clears the telescope lock',
+                    'hide': True
+                },
 
-            {
-                'regex': r'^\\who$',
-                'function': self.get_who,
-                'description': '`\\who` shows who has the telescope locked',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\who$',
+                    'function': self.get_who,
+                    'description': '`\\who` shows who has the telescope locked',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\weather$',
-                'function': self.get_weather,
-                'description': '`\\weather` shows the current weather conditions',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\weather$',
+                    'function': self.get_weather,
+                    'description': '`\\weather` shows the current weather conditions',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\clouds$',
-                'function': self.get_clouds,
-                'description': '`\\clouds` shows the current cloud cover',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\clouds$',
+                    'function': self.get_clouds,
+                    'description': '`\\clouds` shows the current cloud cover',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\sun$',
-                'function': self.get_sun,
-                'description': '`\\sun` shows the sun altitude',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\sun$',
+                    'function': self.get_sun,
+                    'description': '`\\sun` shows the sun altitude',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\moon$',
-                'function': self.get_moon,
-                'description': '`\\moon` shows the moon altitude and phase',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\moon$',
+                    'function': self.get_moon,
+                    'description': '`\\moon` shows the moon altitude and phase',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\where$',
-                'function': self.get_where,
-                'description': '`\\where` shows where the telescope is pointing',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\where$',
+                    'function': self.get_where,
+                    'description': '`\\where` shows where the telescope is pointing',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\ccd$',
-                'function': self.get_ccd,
-                'description': '`\\ccd` shows CCD information',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\ccd$',
+                    'function': self.get_ccd,
+                    'description': '`\\ccd` shows CCD information',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\clearsky$',
-                'function': self.get_clearsky,
-                'description': '`\\clearsky` shows Clear Sky chart(s)',
-                'hide': False
-            },
+                {
+                    'regex': r'^\\clearsky$',
+                    'function': self.get_clearsky,
+                    'description': '`\\clearsky` shows Clear Sky chart(s)',
+                    'hide': False
+                },
 
-            {
-                'regex': r'^\\skycam$',
-                'function': self.get_skycam,
-                'description': '`\\skycam` shows skycam image(s)',
-                'hide': False
-            }
-
-        ]
+                {
+                    'regex': r'^\\skycam$',
+                    'function': self.get_skycam,
+                    'description': '`\\skycam` shows skycam image(s)',
+                    'hide': False
+                }
+            ]
+        except Exception as e:
+            raise Exception('Failed to build list of commands. Exception (%s).' % e)

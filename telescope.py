@@ -238,6 +238,9 @@ class Telescope:
     def get_skycam(self, interface):
         self.setter(interface)
 
+    def get_image(self, interface):
+        self.logger.debug('get_image')
+
     def get_precipitation(self, interface):
         self.getter(interface)
 

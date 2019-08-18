@@ -3,6 +3,11 @@ import re
 
 telescope_interfaces = {
     # done ccd_status nrow=2048 ncol=2048 readtime=8 tchip=-17.8 setpoint=-20.0 name=ProLine_PL230 darktime=41668 pixel=15.0 rot=180 drive=100
+    'get_image': {
+        'command': 'tx slit',
+        'inputs': {},
+        'outputs': {}
+    },
     'get_ccd': {
         'command': 'tx ccd_status',
         'inputs': {},

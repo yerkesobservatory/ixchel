@@ -273,3 +273,9 @@ class Telescope:
 
     def get_where(self, interface):
         self.getter(interface)
+
+    def point(self, interface):
+        self.setter(interface)
+
+    def track(self, interface):
+        self.setter(interface)

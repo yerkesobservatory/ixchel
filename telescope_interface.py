@@ -2,7 +2,49 @@ import logging
 import re
 
 telescope_interfaces = {
-    # done ccd_status nrow=2048 ncol=2048 readtime=8 tchip=-17.8 setpoint=-20.0 name=ProLine_PL230 darktime=41668 pixel=15.0 rot=180 drive=100
+    'track': {
+        'command': 'tx track {on_off}',
+        'inputs': {
+            'on_off': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'ha': {
+                'regex': r'(?<=ha=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'dec': {
+                'regex': r'(?<=dec=).*?$',
+                'value': None,
+                'type': float
+            },
+        }
+    },
+    'point': {
+        'command': 'tx point ra={ra} dec={dec}',
+        'inputs': {
+            'ra': {
+                'value': None
+            },
+            'dec': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'move': {
+                'regex': r'(?<=move=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'dist': {
+                'regex': r'(?<=dist=).*?$',
+                'value': None,
+                'type': float
+            },
+        }
+    },
     'get_image': {
         'command': 'image time={exposure} bin={bin} outfile=/tmp/out.fits',
         'inputs': {

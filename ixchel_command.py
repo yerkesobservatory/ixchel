@@ -90,9 +90,80 @@ class IxchelCommand:
         self.logger.error('Command failed (%s). %s' % (command, error))
         self.slack.send_message('Error. Command (%s) failed.' % command)
 
+    def track(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('track')
+            # assign values
+            on_off = command.group(1)
+            telescope_interface.set_input_value('on_off', on_off)
+            # create a command that applies the specified values
+            self.telescope.track(telescope_interface)
+            self.slack.send_message('Telescope tracking is %s.' % on_off.strip().lower())            
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
+
+    def point_ra_dec(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message('Please lock the telescope before calling this command.')
+            return
+        try:
+            ra = command.group(1).strip()
+            dec = command.group(2).strip()
+            self.slack.send_message('%s is pointing the telescope to RA=%s/DEC=%s. Please wait...' % (self.config.get('slack', 'username'), ra, dec))
+            #turn on telescope tracking
+            telescope_interface = TelescopeInterface('track')           
+            telescope_interface.set_input_value('on_off', 'on')
+            self.telescope.track(telescope_interface)
+            #point the telescope
+            telescope_interface = TelescopeInterface('point')
+            # assign values
+            telescope_interface.set_input_value('ra', ra)
+            telescope_interface.set_input_value('dec', dec)
+            # create a command that applies the specified values
+            self.telescope.point(telescope_interface)
+            # send output to Slack
+            self.slack.send_message('Telescope successfully pointed to RA=%s/DEC=%s.'%(ra, dec))
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e) 
+
+    def point(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message('Please lock the telescope before calling this command.')
+            return
+        try:
+            # get object id; assume 1 if none
+            if command.group(1):
+                id = int(command.group(1).strip())
+            else:
+                id = 1
+            # ensure object id is valid
+            if id < 1 or id > len(self.skyObjects):
+                self.slack.send_message('%s does not recognize that object id (%d).' % (
+                    self.config.get('slack', 'username'), id))
+                return
+            # find corresponding object
+            skyObject = self.skyObjects[id-1]
+            self.slack.send_message('%s is pointing the telescope to "%s". Please wait...' % (self.config.get('slack', 'username'), skyObject.name))
+            #turn on telescope tracking
+            telescope_interface = TelescopeInterface('track')           
+            telescope_interface.set_input_value('on_off', 'on')
+            self.telescope.track(telescope_interface)
+            #point the telescope
+            telescope_interface = TelescopeInterface('point')
+            # assign values
+            telescope_interface.set_input_value('ra', skyObject.ra)
+            telescope_interface.set_input_value('dec', skyObject.dec)
+            # create a command that applies the specified values
+            self.telescope.point(telescope_interface)
+            # send output to Slack
+            self.slack.send_message('Telescope successfully pointed to %s.'%skyObject.name)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
+
     def plot_ra_dec(self, command, user):
         ra = command.group(1)
         dec = command.group(2)
+        self.slack.send_message('%s is calculating when RA=%s/DEC=%s is observable from your location. Please wait...' % (self.config.get('slack', 'username'), ra, dec))
         self.coordinate.plot(ra, dec)
 
     def plot(self, command, user):
@@ -645,6 +716,27 @@ class IxchelCommand:
                     'regex': r'^\\plot(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)$', #ra dec regex should be better
                     'function': self.plot_ra_dec,
                     'description': '`\\plot <RA> <DEC>` shows if/when coordinate is observable',
+                    'hide': True
+                },
+
+                {
+                    'regex': r'^\\track(\s(?:on|off))?$',
+                    'function': self.track,
+                    'description': '`\\track <on/off> toggles telescope tracking',
+                    'hide': True
+                },
+
+                {
+                    'regex': r'^\\point(\s[0-9]+)?$',
+                    'function': self.point,
+                    'description': '`\\point <object #> or \\point <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` points the telescope to an object (run `\\find` first!) or coordinate',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\point(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)$', #ra dec regex should be better
+                    'function': self.point_ra_dec,
+                    'description': '`\\point <RA> <DEC>` points the telescope to a coordinate',
                     'hide': True
                 },
 

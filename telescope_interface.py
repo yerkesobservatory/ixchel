@@ -46,12 +46,15 @@ telescope_interfaces = {
         }
     },
     'get_image': {
-        'command': 'image time={exposure} bin={bin} outfile=/tmp/out.fits',
+        'command': 'image time={exposure} bin={bin} filter={filter} outfile={outfile}',
         'inputs': {
             'exposure': {
                 'value': None
             },
             'bin': {
+                'value': None
+            },
+            'outfile': {
                 'value': None
             }
         },
@@ -157,6 +160,22 @@ telescope_interfaces = {
                 'regex': r'(?<=dew=).*?$',
                 'value': None,
                 'type': float
+            }
+        }
+    },
+    'get_filter': {
+        'command': 'tx filter',
+        'inputs': {},
+        'outputs': {
+            'num': {
+                'regex': r'(?<=num=).*?(?= )',
+                'value': None,
+                'type': int
+            },
+            'name': {
+                'regex': r'(?<=name=).*?$',
+                'value': None,
+                'type': str
             }
         }
     },

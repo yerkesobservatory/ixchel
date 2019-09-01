@@ -346,10 +346,12 @@ class Satellite:
     def find(self, search_string):
         satellites = []
         for sat in self.db:
-            if re.search(r'\*$', search_string):
-                got_match = (sat[0].find(search_string.upper().replace('*', '')) >= 0)
-            else:
-                got_match = (sat[0] == search_string.upper())
+            # if re.search(r'\*$', search_string):
+            #     got_match = (sat[0].find(search_string.upper().replace('*', '')) >= 0)
+            # else:
+            #     got_match = (sat[0] == search_string.upper())
+            #try always doing a partial search
+            got_match = (sat[0].find(search_string.upper().replace('*', '')) >= 0)
             if got_match:
                 name = sat[0]
                 tle1 = sat[1]

@@ -53,6 +53,7 @@ class IxchelCommand:
 
     commands = []
     skyObjects = []
+    target_name = 'unknown'
 
     def __init__(self, ixchel):
         self.logger = logging.getLogger('IxchelCommand')
@@ -62,6 +63,7 @@ class IxchelCommand:
         self.username = self.config.get('slack', 'username')
         self.slack = ixchel.slack
         self.telescope = ixchel.telescope
+        self.image_path = self.config.get('telescope', 'image_path')
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
@@ -322,6 +324,19 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
+    def get_filter(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_filter')
+            # query telescope
+            self.telescope.get_precipitation(telescope_interface)
+            # assign values
+            num = telescope_interface.get_output_value('num')
+            name = telescope_interface.get_output_value('name')
+            # send output to Slack
+            self.slack.send_message('Filter is %s.' % name)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
+
     def get_focus(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_focus')
@@ -359,7 +374,10 @@ class IxchelCommand:
             telescope_interface.set_input_value('exposure', exposure)
             bin = int(command.group(2))
             telescope_interface.set_input_value('bin', bin)
-            outfile = image_path + '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (target_name, filter, exposure, binning, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), 'itzamna', 0)
+            # filter = command.group(3)
+            # telescope_interface.set_input_value('filter', filter)
+            outfile = self.image_path + '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), 'itzamna', 0)
+            telescope_interface.set_input_value('outfile', outfile)
             # query telescope
             self.telescope.get_image(telescope_interface)
             ## assign values
@@ -744,6 +762,13 @@ class IxchelCommand:
                     'regex': r'^\\image\s([0-9]+)\s(1|2)\s(%s)$'%'|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_image,
                     'description': '`\\image <exposure> <binning> <filter>` takes an image',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\filter$',
+                    'function': self.get_filter,
+                    'description': '`\\filter` shows the current filter',
                     'hide': False
                 },
 

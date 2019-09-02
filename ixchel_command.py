@@ -339,6 +339,9 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
     def set_filter(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message('Please lock the telescope before calling this command.')
+            return 
         try:
             telescope_interface = TelescopeInterface('set_filter')
             filters = self.config.get('telescope', 'filters').split('\n')
@@ -384,6 +387,15 @@ class IxchelCommand:
 
     def get_image(self, command, user):
         try:
+            #set filter
+            filter = command.group(3)
+            telescope_interface = TelescopeInterface('set_filter')
+            filters = self.config.get('telescope', 'filters').split('\n')
+            num = filters.index(filter) + 1
+            # assign values
+            telescope_interface.set_input_value('num', num)
+            self.telescope.set_filter(telescope_interface)           
+            #get image
             telescope_interface = TelescopeInterface('get_image')
             # assign values
             exposure = int(command.group(1))
@@ -392,7 +404,7 @@ class IxchelCommand:
             telescope_interface.set_input_value('bin', bin)
             # filter = command.group(3)
             # telescope_interface.set_input_value('filter', filter)
-            outfile = self.image_path + '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), 'itzamna', 0)
+            outfile = self.image_path + '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
             telescope_interface.set_input_value('outfile', outfile)
             # query telescope
             self.telescope.get_image(telescope_interface)

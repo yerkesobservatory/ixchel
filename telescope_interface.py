@@ -46,7 +46,7 @@ telescope_interfaces = {
         }
     },
     'get_image': {
-        'command': 'image time={exposure} bin={bin} filter={filter} outfile={outfile}',
+        'command': 'image time={exposure} bin={bin} outfile={outfile}',
         'inputs': {
             'exposure': {
                 'value': None

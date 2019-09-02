@@ -179,6 +179,26 @@ telescope_interfaces = {
             }
         }
     },
+    'set_filter': {
+        'command': 'tx filter num={num}',
+        'inputs': {
+             'num': {
+                'value': None
+            },           
+        },
+        'outputs': {
+            'num': {
+                'regex': r'(?<=num=).*?(?= )',
+                'value': None,
+                'type': int
+            },
+            'name': {
+                'regex': r'(?<=name=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'get_focus': {
         'command': 'tx focus',
         'inputs': {},

@@ -328,12 +328,28 @@ class IxchelCommand:
         try:
             telescope_interface = TelescopeInterface('get_filter')
             # query telescope
-            self.telescope.get_precipitation(telescope_interface)
+            self.telescope.get_filter(telescope_interface)
             # assign values
             num = telescope_interface.get_output_value('num')
-            name = telescope_interface.get_output_value('name')
+            filters = self.config.get('telescope', 'filters').split('\n')
+            name = filters[num-1]
             # send output to Slack
             self.slack.send_message('Filter is %s.' % name)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
+
+    def set_filter(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('set_filter')
+            filters = self.config.get('telescope', 'filters').split('\n')
+            num = filters.index(command.group(1)) + 1
+            # assign values
+            telescope_interface.set_input_value('num', num)
+            self.telescope.set_filter(telescope_interface)
+            num = telescope_interface.get_output_value('num')
+            name = filters[num-1]
+            # send output to Slack
+            self.slack.send_message('Filter is %s.' % name)     
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
@@ -768,7 +784,14 @@ class IxchelCommand:
                 {
                     'regex': r'^\\filter$',
                     'function': self.get_filter,
-                    'description': '`\\filter` shows the current filter',
+                    'description': '`\\filter` shows the filter',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\filter\s(%s)$'%'|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'function': self.set_filter,
+                    'description': '`\\filter <%s>` sets the filter'%'|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'hide': False
                 },
 

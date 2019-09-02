@@ -256,6 +256,9 @@ class Telescope:
     def get_filter(self, interface):
         self.getter(interface)
 
+    def set_filter(self, interface):
+        self.setter(interface)
+
     def get_focus(self, interface):
         self.getter(interface)
 

@@ -98,12 +98,33 @@ telescope_interfaces = {
         }
     },
     'get_skycam': {
-        'command': 'rm -f {skycam_remote_file_path}; spacam {skycam_remote_file_path}; [ -e "{skycam_remote_file_path}" ] && echo 1 || echo 0',
+        'command': 'rm -f {skycam_remote_file_path}; spacam; mv spacam.jpg {skycam_remote_file_path};  [ -e "{skycam_remote_file_path}" ] && echo 1 || echo 0',
         'inputs': {
             'skycam_remote_file_path': {
                 'value': None
             },
             'skycam_local_file_path': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'success': {
+                'regex': r'^[01]$',
+                'value': None,
+                'type': int
+            },
+        }
+    },
+    'convert_fits_to_jpg': {
+        'command': 'rm -f {jpg_file}; rm -f {tiff_file}; stiffy {fits_file} {tiff_file}; convert -resize 50% -normalize -quality 75 {tiff_file} {jpg_file};  [ -e "{jpg_file}" ] && echo 1 || echo 0',
+        'inputs': {
+            'fits_file': {
+                'value': None
+            },
+            'tiff_file': {
+                'value': None
+            },
+            'jpg_file': {
                 'value': None
             }
         },
@@ -182,9 +203,9 @@ telescope_interfaces = {
     'set_filter': {
         'command': 'tx filter num={num}',
         'inputs': {
-             'num': {
+            'num': {
                 'value': None
-            },           
+            },
         },
         'outputs': {
             'num': {

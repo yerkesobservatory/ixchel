@@ -241,6 +241,9 @@ class Telescope:
     def get_image(self, interface):
         self.setter(interface)
 
+    def convert_fits_to_jpg(self, interface):
+        self.setter(interface)
+
     def get_precipitation(self, interface):
         self.getter(interface)
 

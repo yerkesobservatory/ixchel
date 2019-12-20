@@ -10,10 +10,16 @@ from telescope_interface import TelescopeInterface
 from astropy.coordinates import SkyCoord, Angle, AltAz
 import astropy.units as u
 from astropy.time import Time
+from astropy.utils.data import get_pkg_data_filename
+from astropy.io import fits
 from sky import Satellite, Celestial, SolarSystem, Coordinate
 import json
 import random
 import string
+import matplotlib
+matplotlib.use('Agg')  # don't need display
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 find_format_string = \
 """[
@@ -63,7 +69,7 @@ class IxchelCommand:
         self.username = self.config.get('slack', 'username')
         self.slack = ixchel.slack
         self.telescope = ixchel.telescope
-        self.image_path = self.config.get('telescope', 'image_path')
+        self.image_remote_dir = self.config.get('telescope', 'image_remote_dir')
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
@@ -225,7 +231,21 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Sorry, %s knows all but *still* could not find "%s".' % (self.config.get('slack', 'username'), search_string))
         except Exception as e:
-            self.handle_error(command.group(0), 'Exception (%s).'%e)        
+            self.handle_error(command.group(0), 'Exception (%s).'%e)      
+
+    def convert_fits_to_image(self, command, fits_file):
+        try:
+            image_file = get_pkg_data_filename(fits_file)
+            #fits.info(image_file)
+            image_data = fits.getdata(image_file, ext=0)
+            plt.figure()
+            plt.imshow(image_data, cmap='gray', norm=LogNorm())
+            plot_png_file_path = fits_file + '.png'
+            plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
+            plt.close()
+            self.ixchel.slack.send_file(plot_png_file_path, '')
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)               
 
     def get_help(self, command, user):
         help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
@@ -385,16 +405,38 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
-    def get_image(self, command, user):
+    def set_filter(self, filter):
         try:
-            #set filter
-            filter = command.group(3)
             telescope_interface = TelescopeInterface('set_filter')
             filters = self.config.get('telescope', 'filters').split('\n')
             num = filters.index(filter) + 1
             # assign values
             telescope_interface.set_input_value('num', num)
-            self.telescope.set_filter(telescope_interface)           
+            self.telescope.set_filter(telescope_interface) 
+        except Exception as e:
+            raise ValueError('Failed to set the filter to %s.' % filter)
+
+    def slack_send_fits_file(self, fits_file, comment):
+        try:
+            telescope_interface = TelescopeInterface('convert_fits_to_jpg')
+            telescope_interface.set_input_value('fits_file', fits_file)
+            telescope_interface.set_input_value('tiff_file', self.config.get('telescope', 'convert_tiff_remote_file_path'))
+            telescope_interface.set_input_value('jpg_file', self.config.get('telescope', 'convert_jpg_remote_file_path'))
+            self.telescope.convert_fits_to_jpg(telescope_interface)                                              
+            success = self.telescope.get_file(self.config.get('telescope', 'convert_jpg_remote_file_path'), self.config.get('telescope', 'convert_jpg_local_file_path'))
+            if success:
+                self.logger.debug('Convert the fits file to an image!')                   
+                self.slack.send_file(self.config.get('telescope', 'convert_jpg_local_file_path'), comment)
+            else:
+                self.logger.error('Failed to get telescope image from remote server.') 
+        except Exception as e:
+            raise ValueError('Failed to send the fits file (%s) to Slack.' % fits_file)
+
+    def get_image(self, command, user):
+        try:
+            #set filter
+            filter = command.group(3)
+            self.set_filter(filter)
             #get image
             telescope_interface = TelescopeInterface('get_image')
             # assign values
@@ -404,7 +446,8 @@ class IxchelCommand:
             telescope_interface.set_input_value('bin', bin)
             # filter = command.group(3)
             # telescope_interface.set_input_value('filter', filter)
-            outfile = self.image_path + '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
+            fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
+            outfile = self.image_remote_dir + fname
             telescope_interface.set_input_value('outfile', outfile)
             # query telescope
             self.telescope.get_image(telescope_interface)
@@ -412,6 +455,7 @@ class IxchelCommand:
             error = telescope_interface.get_output_value('error')
             if error == '':
                 self.slack.send_message('Image command completed successfully.')
+                self.slack_send_fits_file(outfile, fname)                
             else:
                 self.handle_error(command.group(0), 'Error (%s).'%error)
         except Exception as e:

@@ -46,7 +46,7 @@ telescope_interfaces = {
         }
     },
     'get_image': {
-        'command': 'image {dark} time={exposure} bin={bin} outfile={outfile}',
+        'command': 'mkdir -p {path}; image {dark} time={exposure} bin={bin} outfile={path}{fname}',
         'inputs': {
             'exposure': {
                 'value': None
@@ -54,7 +54,10 @@ telescope_interfaces = {
             'bin': {
                 'value': None
             },
-            'outfile': {
+            'path': {
+                'value': None
+            },
+            'fname': {
                 'value': None
             },
             'dark': {

@@ -20,6 +20,7 @@ import matplotlib
 matplotlib.use('Agg')  # don't need display
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+import pathlib2
 
 find_format_string = \
 """[
@@ -428,17 +429,18 @@ class IxchelCommand:
         except Exception as e:
             raise ValueError('Failed to send the fits file (%s) to Slack.' % fits_file)
 
-    def _get_image(self, exposure, bin, filter, outfile, is_dark = False):
+    def _get_image(self, exposure, bin, filter, path, fname, is_dark = False):
         #try:
         #set filter
         self._set_filter(filter)
         #take image        
         telescope_interface = TelescopeInterface('get_image')
         telescope_interface.set_input_value('exposure', exposure)
-        telescope_interface.set_input_value('bin', bin)
+        telescope_interface.set_input_value('bin', bin)       
+        telescope_interface.set_input_value('path', path)
+        telescope_interface.set_input_value('fname', fname)     
         if is_dark:
-            telescope_interface.set_input_value('dark', 'dark')            
-        telescope_interface.set_input_value('outfile', outfile)
+            telescope_interface.set_input_value('dark', 'dark')     
         self.telescope.get_image(telescope_interface)
         return telescope_interface.get_output_value('error')
         #except Exception as e:
@@ -450,11 +452,11 @@ class IxchelCommand:
             exposure = int(command.group(1))
             bin = int(command.group(2))
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
-            outfile = self.image_remote_dir + fname
-            error = self._get_image(exposure, bin, filter, outfile, False)
+            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + self.slack.get_user_by_id(user['id']).get('name', user['id']) + '/'
+            error = self._get_image(exposure, bin, filter, path, fname, False)
             if error == '':
                 self.slack.send_message('Image command completed successfully.')
-                self.slack_send_fits_file(outfile, fname)                
+                self.slack_send_fits_file(path + fname, fname)                
             else:
                 self.handle_error(command.group(0), 'Error (%s).'%error)
         except Exception as e:
@@ -466,11 +468,11 @@ class IxchelCommand:
             exposure = int(command.group(1))
             bin = int(command.group(2))
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % ('dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
-            outfile = self.image_remote_dir + fname
-            error = self._get_image(exposure, bin, filter, outfile, True)
+            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + self.slack.get_user_by_id(user['id']).get('name', user['id']) + '/'
+            error = self._get_image(exposure, bin, filter, path, fname, True)
             if error == '':
                 self.slack.send_message('Image command completed successfully.')
-                self.slack_send_fits_file(outfile, fname)                
+                self.slack_send_fits_file(path + fname, fname)                
             else:
                 self.handle_error(command.group(0), 'Error (%s).'%error)
         except Exception as e:
@@ -482,11 +484,11 @@ class IxchelCommand:
             exposure = self.config.get('telescope', 'exposure_for_bias')
             bin = int(command.group(1))
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % ('bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
-            outfile = self.image_remote_dir + fname
-            error = self._get_image(exposure, bin, filter, outfile, True)
+            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d_%H%M%S') + '/' + self.slack.get_user_by_id(user['id']).get('name', user['id']) + '/'
+            error = self._get_image(exposure, bin, filter, path, fname, True)
             if error == '':
                 self.slack.send_message('Image command completed successfully.')
-                self.slack_send_fits_file(outfile, fname)                
+                self.slack_send_fits_file(path + fname, fname)                
             else:
                 self.handle_error(command.group(0), 'Error (%s).'%error)
         except Exception as e:

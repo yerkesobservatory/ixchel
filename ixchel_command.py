@@ -358,19 +358,26 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
+    def _set_filter(self, filter):
+        try:
+            telescope_interface = TelescopeInterface('set_filter')
+            filters = self.config.get('telescope', 'filters').split('\n')
+            num = filters.index(filter) + 1
+            # assign values
+            telescope_interface.set_input_value('num', num)
+            self.telescope.set_filter(telescope_interface)
+            num = telescope_interface.get_output_value('num')
+            return filters[num-1]
+        except Exception as e:
+            self.logger.error('Failed to set the filter to %s.' % filter)
+            raise
+
     def set_filter(self, command, user):
         if not self.is_locked_by(user):
             self.slack.send_message('Please lock the telescope before calling this command.')
             return 
         try:
-            telescope_interface = TelescopeInterface('set_filter')
-            filters = self.config.get('telescope', 'filters').split('\n')
-            num = filters.index(command.group(1)) + 1
-            # assign values
-            telescope_interface.set_input_value('num', num)
-            self.telescope.set_filter(telescope_interface)
-            num = telescope_interface.get_output_value('num')
-            name = filters[num-1]
+            name = self._set_filter(command.group(1))
             # send output to Slack
             self.slack.send_message('Filter is %s.' % name)     
         except Exception as e:
@@ -405,17 +412,6 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).'%e)
 
-    def set_filter(self, filter):
-        try:
-            telescope_interface = TelescopeInterface('set_filter')
-            filters = self.config.get('telescope', 'filters').split('\n')
-            num = filters.index(filter) + 1
-            # assign values
-            telescope_interface.set_input_value('num', num)
-            self.telescope.set_filter(telescope_interface) 
-        except Exception as e:
-            raise ValueError('Failed to set the filter to %s.' % filter)
-
     def slack_send_fits_file(self, fits_file, comment):
         try:
             telescope_interface = TelescopeInterface('convert_fits_to_jpg')
@@ -432,27 +428,62 @@ class IxchelCommand:
         except Exception as e:
             raise ValueError('Failed to send the fits file (%s) to Slack.' % fits_file)
 
+    def _get_image(self, exposure, bin, filter, outfile, is_dark = False):
+        #try:
+        #set filter
+        self._set_filter(filter)
+        #take image        
+        telescope_interface = TelescopeInterface('get_image')
+        telescope_interface.set_input_value('exposure', exposure)
+        telescope_interface.set_input_value('bin', bin)
+        if is_dark:
+            telescope_interface.set_input_value('dark', 'dark')            
+        telescope_interface.set_input_value('outfile', outfile)
+        self.telescope.get_image(telescope_interface)
+        return telescope_interface.get_output_value('error')
+        #except Exception as e:
+        #    raise ValueError('Failed to take an image.')
+
     def get_image(self, command, user):
         try:
-            #set filter
             filter = command.group(3)
-            self.set_filter(filter)
-            #get image
-            telescope_interface = TelescopeInterface('get_image')
-            # assign values
             exposure = int(command.group(1))
-            telescope_interface.set_input_value('exposure', exposure)
             bin = int(command.group(2))
-            telescope_interface.set_input_value('bin', bin)
-            # filter = command.group(3)
-            # telescope_interface.set_input_value('filter', filter)
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
             outfile = self.image_remote_dir + fname
-            telescope_interface.set_input_value('outfile', outfile)
-            # query telescope
-            self.telescope.get_image(telescope_interface)
-            ## assign values
-            error = telescope_interface.get_output_value('error')
+            error = self._get_image(exposure, bin, filter, outfile, False)
+            if error == '':
+                self.slack.send_message('Image command completed successfully.')
+                self.slack_send_fits_file(outfile, fname)                
+            else:
+                self.handle_error(command.group(0), 'Error (%s).'%error)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
+
+    def get_dark(self, command, user):
+        try:
+            filter = self.config.get('telescope', 'filter_for_darks')
+            exposure = int(command.group(1))
+            bin = int(command.group(2))
+            fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % ('dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
+            outfile = self.image_remote_dir + fname
+            error = self._get_image(exposure, bin, filter, outfile, True)
+            if error == '':
+                self.slack.send_message('Image command completed successfully.')
+                self.slack_send_fits_file(outfile, fname)                
+            else:
+                self.handle_error(command.group(0), 'Error (%s).'%error)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).'%e)
+
+    def get_bias(self, command, user):
+        try:
+            filter = self.config.get('telescope', 'filter_for_darks')
+            exposure = self.config.get('telescope', 'exposure_for_bias')
+            bin = int(command.group(1))
+            fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % ('bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
+            outfile = self.image_remote_dir + fname
+            error = self._get_image(exposure, bin, filter, outfile, True)
             if error == '':
                 self.slack.send_message('Image command completed successfully.')
                 self.slack_send_fits_file(outfile, fname)                
@@ -786,7 +817,7 @@ class IxchelCommand:
 
     def init_commands(self):
         try:
-            self.logger.debug(r'^\\image\s([0-9]+)\s(1|2)\s(%s)$'%'|'.join(self.config.get('telescope', 'filters').split('\n')))
+            #self.logger.debug(r'^\\image\s([0-9]+)\s(1|2)\s(%s)$'%'|'.join(self.config.get('telescope', 'filters').split('\n')))
             self.commands = [
                 {
                     'regex': r'^\\find\s(.+)$',
@@ -974,6 +1005,20 @@ class IxchelCommand:
                     'regex': r'^\\skycam$',
                     'function': self.get_skycam,
                     'description': '`\\skycam` shows skycam image(s)',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\dark\s([0-9]+)\s(1|2)$',
+                    'function': self.get_dark,
+                    'description': '`\\dark <exposure> <binning>` takes a dark frame',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\bias\s(1|2)$',
+                    'function': self.get_bias,
+                    'description': '`\\bias <binning>` takes a bias frame',
                     'hide': False
                 }
             ]

@@ -726,96 +726,96 @@ class IxchelCommand:
     #             'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
     #         self.handle_error(command.group(0), 'Exception (%s).'%e)
 
-    # https://api.weatherbit.io/v2.0/
-    def get_forecast(self, command, user):
-        base_url = self.config.get('weatherbit', 'base_url')
-        icon_base_url = self.config.get('weatherbit', 'icon_base_url')
-        api_key = self.config.get('weatherbit', 'api_key')
-        max_forecasts = int(self.config.get(
-            'weatherbit', 'max_forecasts', 5))
-        latitude = self.config.get('telescope', 'latitude')
-        longitude = self.config.get('telescope', 'longitude')
-        timezone = self.config.get('telescope', 'timezone', 'GMT')
-        # user the weatherbit API
-        url = '%sforecast/hourly?lat=%s&lon=%s&units=I&key=%s' % (base_url, latitude, longitude, api_key)
-        try:
-            r = requests.post(url)
-            if r.ok:
-                data = r.json()
-                forecasts = data.get('data')
-                station = data.get('city_name')
-                self.slack.send_message('Weather Forecast:')
-                self.slack.send_message('>Station: %s' % station)
-                for forecast in forecasts[:max_forecasts]:
-                    dt = datetime.datetime.strptime(forecast.get('timestamp_utc', '1970-01-01T00:00:00'), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=pytz.utc)
-                    dt_local = dt.astimezone(pytz.timezone(timezone))
-                    icon_url = icon_base_url + forecast.get('weather').get('icon') + '.png'
-                    weather = forecast.get('weather').get('description')
-                    clouds = int(forecast.get('clouds'))
-                    dt_string = '%s (%s)' % (dt_local.strftime(
-                        '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
-                    if clouds > 0:
-                        self.slack.send_message(
-                            "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
-                    else:
-                        self.slack.send_message(
-                            "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
-                    time.sleep(1)  # don't trigger the Slack bandwidth threshold
-            else:
-                self.handle_error(command.group(0), 'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
-        except Exception as e:
-            self.handle_error(command.group(0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
-
-    # # https://openweathermap.org/forecast5
+    # # https://api.weatherbit.io/v2.0/
     # def get_forecast(self, command, user):
-    #     base_url = self.config.get('openweathermap', 'base_url')
-    #     icon_base_url = self.config.get('openweathermap', 'icon_base_url')
-    #     api_key = self.config.get('openweathermap', 'api_key')
+    #     base_url = self.config.get('weatherbit', 'base_url')
+    #     icon_base_url = self.config.get('weatherbit', 'icon_base_url')
+    #     api_key = self.config.get('weatherbit', 'api_key')
     #     max_forecasts = int(self.config.get(
-    #         'openweathermap', 'max_forecasts', 5))
+    #         'weatherbit', 'max_forecasts', 5))
     #     latitude = self.config.get('telescope', 'latitude')
     #     longitude = self.config.get('telescope', 'longitude')
     #     timezone = self.config.get('telescope', 'timezone', 'GMT')
-    #     # user the OpenWeatherMap API
-    #     url = '%sforecast?lat=%s&lon=%s&units=imperial&APPID=%s' % (
-    #         base_url, latitude, longitude, api_key)
+    #     # user the weatherbit API
+    #     url = '%sforecast/hourly?lat=%s&lon=%s&units=I&key=%s' % (base_url, latitude, longitude, api_key)
     #     try:
     #         r = requests.post(url)
+    #         if r.ok:
+    #             data = r.json()
+    #             forecasts = data.get('data')
+    #             station = data.get('city_name')
+    #             self.slack.send_message('Weather Forecast:')
+    #             self.slack.send_message('>Station: %s' % station)
+    #             for forecast in forecasts[:max_forecasts]:
+    #                 dt = datetime.datetime.strptime(forecast.get('timestamp_utc', '1970-01-01T00:00:00'), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=pytz.utc)
+    #                 dt_local = dt.astimezone(pytz.timezone(timezone))
+    #                 icon_url = icon_base_url + forecast.get('weather').get('icon') + '.png'
+    #                 weather = forecast.get('weather').get('description')
+    #                 clouds = int(forecast.get('clouds'))
+    #                 dt_string = '%s (%s)' % (dt_local.strftime(
+    #                     '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
+    #                 if clouds > 0:
+    #                     self.slack.send_message(
+    #                         "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
+    #                 else:
+    #                     self.slack.send_message(
+    #                         "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
+    #                 time.sleep(1)  # don't trigger the Slack bandwidth threshold
+    #         else:
+    #             self.handle_error(command.group(0), 'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
     #     except Exception as e:
-    #         self.logger.error(
-    #             'OpenWeatherMap API request (%s) failed.' % url)
-    #         self.handle_error(command.group(0), e)
-    #         return
-    #     if r.ok:
-    #         data = r.json()
-    #         station = data.get('city').get('name', 'Unknown')
-    #         forecasts = data.get('list')
-    #         self.slack.send_message('Weather Forecast:')
-    #         self.slack.send_message('>Station: %s' % station)
-    #         for forecast in forecasts[:max_forecasts]:
-    #             dt = datetime.datetime.utcfromtimestamp(
-    #                 forecast.get('dt', time.time())).replace(tzinfo=pytz.utc)
-    #             dt_local = dt.astimezone(pytz.timezone(timezone))
-    #             icon_url = icon_base_url + \
-    #                 forecast.get('weather')[0].get('icon', '01d') + '.png'
-    #             weather = forecast.get('weather')[0].get('main', 'Unknown')
-    #             clouds = int(forecast.get('clouds').get('all', 0))
-    #             # self.slack.send_message('Date/Time: %s (%s)' % (dt_local.strftime(
-    #             #    "%A, %B %d, %Y %I:%M%p"), dt.strftime("%A, %B %d, %Y %I:%M%p UTC")))
-    #             dt_string = '%s (%s)' % (dt_local.strftime(
-    #                 '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
-    #             #self.slack.send_message('Clouds: %0.1f%%' % clouds)
-    #             if clouds > 0:
-    #                 self.slack.send_message(
-    #                     "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
-    #             else:
-    #                 self.slack.send_message(
-    #                     "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
-    #             time.sleep(1)  # don't trigger the Slack bandwidth threshold
-    #     else:
-    #         self.logger.error(
-    #             'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
-    #         self.handle_error(command.group(0), e)
+    #         self.handle_error(command.group(0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
+
+    # https://openweathermap.org/forecast5
+    def get_forecast(self, command, user):
+        base_url = self.config.get('openweathermap', 'base_url')
+        icon_base_url = self.config.get('openweathermap', 'icon_base_url')
+        api_key = self.config.get('openweathermap', 'api_key')
+        max_forecasts = int(self.config.get(
+            'openweathermap', 'max_forecasts', 5))
+        latitude = self.config.get('telescope', 'latitude')
+        longitude = self.config.get('telescope', 'longitude')
+        timezone = self.config.get('telescope', 'timezone', 'GMT')
+        # user the OpenWeatherMap API
+        url = '%sforecast?lat=%s&lon=%s&units=imperial&APPID=%s' % (
+            base_url, latitude, longitude, api_key)
+        try:
+            r = requests.post(url)
+        except Exception as e:
+            self.logger.error(
+                'OpenWeatherMap API request (%s) failed.' % url)
+            self.handle_error(command.group(0), e)
+            return
+        if r.ok:
+            data = r.json()
+            station = data.get('city').get('name', 'Unknown')
+            forecasts = data.get('list')
+            self.slack.send_message('Weather Forecast:')
+            self.slack.send_message('>Station: %s' % station)
+            for forecast in forecasts[:max_forecasts]:
+                dt = datetime.datetime.utcfromtimestamp(
+                    forecast.get('dt', time.time())).replace(tzinfo=pytz.utc)
+                dt_local = dt.astimezone(pytz.timezone(timezone))
+                icon_url = icon_base_url + \
+                    forecast.get('weather')[0].get('icon', '01d') + '.png'
+                weather = forecast.get('weather')[0].get('main', 'Unknown')
+                clouds = int(forecast.get('clouds').get('all', 0))
+                # self.slack.send_message('Date/Time: %s (%s)' % (dt_local.strftime(
+                #    "%A, %B %d, %Y %I:%M%p"), dt.strftime("%A, %B %d, %Y %I:%M%p UTC")))
+                dt_string = '%s (%s)' % (dt_local.strftime(
+                    '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
+                #self.slack.send_message('Clouds: %0.1f%%' % clouds)
+                if clouds > 0:
+                    self.slack.send_message(
+                        "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
+                else:
+                    self.slack.send_message(
+                        "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
+                time.sleep(1)  # don't trigger the Slack bandwidth threshold
+        else:
+            self.logger.error(
+                'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
+            self.handle_error(command.group(0), e)
 
     def init_commands(self):
         try:

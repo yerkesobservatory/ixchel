@@ -25,12 +25,7 @@ from __future__ import (print_function, unicode_literals)
 
 import time
 import numpy as np
-try:
-    # Python 3
-    import urllib.request as urllib
-except ImportError:
-    # Python 2
-    import urllib2 as urllib
+import urllib.request as urllib
 
 
 class query():

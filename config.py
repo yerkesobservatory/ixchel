@@ -1,12 +1,12 @@
 import logging
-import ConfigParser
+import configparser
 
 
 class Config:
 
     def __init__(self, cfg_file_path):
         self.logger = logging.getLogger('ixchel.Config')
-        self.config = ConfigParser.SafeConfigParser()
+        self.config = configparser.SafeConfigParser()
         self.config.read(cfg_file_path)
 
     def get(self, section, option, default=None):

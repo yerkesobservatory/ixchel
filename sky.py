@@ -1,7 +1,9 @@
+from astropy.visualization import astropy_mpl_style
+import matplotlib.pyplot as plt
 import logging
 import re
-import urllib2
-import StringIO
+import urllib.request as urllib
+from io import BytesIO
 from zipfile import ZipFile
 import ephem
 from astropy.coordinates import SkyCoord, Angle, AltAz, get_sun
@@ -15,14 +17,13 @@ import ch  # callhorizons module customized
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # don't need display
-import matplotlib.pyplot as plt
-from astropy.visualization import astropy_mpl_style
 plt.style.use(astropy_mpl_style)
 
 # defines a sky object data structure
 SkyObject = collections.namedtuple(
     'SkyObject', 'id name type ra dec vmag tle1 tle2')
 SkyObject.__new__.__defaults__ = (None,) * len(SkyObject._fields)
+
 
 class SolarSystem:
 
@@ -32,8 +33,9 @@ class SolarSystem:
         self.config = ixchel.config
 
     def plot(self, solarSystemObject):
-        #get current coordinates
-        c = SkyCoord(solarSystemObject.ra, solarSystemObject.dec, unit=(u.hour, u.deg))
+        # get current coordinates
+        c = SkyCoord(solarSystemObject.ra,
+                     solarSystemObject.dec, unit=(u.hour, u.deg))
         # look 24 hours into the future
         now = Time(datetime.datetime.utcnow(), scale='utc')
         oneDay = np.linspace(0, 24, 1000)*u.hour
@@ -57,31 +59,33 @@ class SolarSystem:
         plt.ylim(0, 90)
         plt.xlabel('Hours [from now]')
         plt.ylabel('Altitude [deg]')
-        plot_png_file_path = self.config.get('misc', 'plot_file_path', 'plot.png') + 'plot.png'
+        plot_png_file_path = self.config.get(
+            'misc', 'plot_file_path', 'plot.png') + 'plot.png'
         plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
         plt.close()
-        self.ixchel.slack.send_file(plot_png_file_path, '%s Visibility' % solarSystemObject.name)     
+        self.ixchel.slack.send_file(
+            plot_png_file_path, '%s Visibility' % solarSystemObject.name)
 
-    def find(self, search_string): #this is a terrible scraping hack, but it's proven and comprehensive
+    def find(self, search_string):  # this is a terrible scraping hack, but it's proven and comprehensive
         solarSystemObjects = []
-        suffix = '' # set to * to make the searches wider by default
+        suffix = ''  # set to * to make the searches wider by default
         # two passes, one for major (and maybe small) and one for (only) small bodies
         search_strings = [search_string + suffix, search_string + suffix + ';']
         # list of matches
         objects = []
         for repeat in range(0, 2):
             # user JPL Horizons batch to find matches
-            f = urllib2.urlopen('https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=l&COMMAND="%s"' %
-                                urllib2.quote(search_strings[repeat].upper()))
+            f = urllib.urlopen('https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=l&COMMAND="%s"' %
+                               urllib.quote(search_strings[repeat].upper()))
             output = f.read()  # the whole enchilada
             lines = output.splitlines()  # line by line
             # no matches? go home
             if re.search('No matches found', output):
                 self.logger.debug('No matches found in JPL Horizons for %s.' %
-                    search_strings[repeat].upper())
+                                  search_strings[repeat].upper())
             elif re.search('Target body name:', output):
                 self.logger.debug('Single match found in JPL Horizons for %s.' %
-                    search_strings[repeat].upper().replace(suffix, ''))
+                                  search_strings[repeat].upper().replace(suffix, ''))
                 # just one match?
                 # if major body search (repeat = 0), ignore small body results
                 # if major body search, grab integer id
@@ -94,14 +98,14 @@ class SolarSystem:
                         objects.append(match.group(1))
                     else:
                         self.logger.debug('Error. Could not parse id for single match major body (%s).' %
-                            search_strings[repeat].upper().replace(suffix, ''))
+                                          search_strings[repeat].upper().replace(suffix, ''))
                 else:
                     # user search term is unique, so use it!
                     objects.append(
                         search_strings[repeat].upper().replace(suffix, ''))
             elif repeat == 1 and re.search('Matching small-bodies', output):
                 self.logger.debug('Multiple small bodies found in JPL Horizons for %s.' %
-                    search_strings[repeat].upper())
+                                  search_strings[repeat].upper())
                 # Matching small-bodies:
                 #
                 #    Record #  Epoch-yr  Primary Desig  >MATCH NAME<
@@ -125,12 +129,14 @@ class SolarSystem:
                 match = re.search(r'(\d+) matches\.', output)
                 if match:
                     if int(match.group(1)) != match_count:
-                        self.logger.debug('Multiple JPL small body parsing error!')
+                        self.logger.debug(
+                            'Multiple JPL small body parsing error!')
                     else:
-                        self.logger.debug('Multiple JPL small body parsing successful!')
+                        self.logger.debug(
+                            'Multiple JPL small body parsing successful!')
             elif repeat == 0 and re.search('Multiple major-bodies', output):
                 self.logger.debug('Multiple major bodies found in JPL Horizons for %s.' %
-                    search_strings[repeat].upper())
+                                  search_strings[repeat].upper())
                 # Multiple major-bodies match string "50*"
                 #
                 #  ID#      Name                               Designation  IAU/aliases/other
@@ -157,10 +163,12 @@ class SolarSystem:
                 match = re.search(r'Number of matches =([\s\d]+).', output)
                 if match:
                     if int(match.group(1)) != match_count:
-                        self.logger.debug('Multiple JPL major body parsing error!')
+                        self.logger.debug(
+                            'Multiple JPL major body parsing error!')
                     else:
-                        self.logger.debug('Multiple JPL major body parsing successful!')
-        #calculate RA/DEC
+                        self.logger.debug(
+                            'Multiple JPL major body parsing successful!')
+        # calculate RA/DEC
         start = datetime.datetime.utcnow()
         end = start+datetime.timedelta(seconds=60)
         for obj in objects:
@@ -170,14 +178,17 @@ class SolarSystem:
                 result.set_epochrange(start.strftime(
                     "%Y/%m/%d %H:%M"), end.strftime("%Y/%m/%d %H:%M"), '1m')
                 result.get_ephemerides(self.config.get('telescope', 'code'))
-                ra = Angle('%fd' % result['RA'][0]).to_string(unit=u.hour, sep=':')
+                ra = Angle('%fd' % result['RA'][0]).to_string(
+                    unit=u.hour, sep=':')
                 dec = Angle('%fd' % result['DEC'][0]).to_string(
                     unit=u.degree, sep=':')
-                solarSystemObject = SkyObject(id = obj.upper(), name = result['targetname'][0], type = 'Solar System', ra = ra, dec = dec, vmag = '%.1f'%result['V'][0])
-                solarSystemObjects.append(solarSystemObject) 
+                solarSystemObject = SkyObject(id=obj.upper(
+                ), name=result['targetname'][0], type='Solar System', ra=ra, dec=dec, vmag='%.1f' % result['V'][0])
+                solarSystemObjects.append(solarSystemObject)
             except Exception as e:
-                pass      
+                pass
         return solarSystemObjects
+
 
 class Coordinate:
 
@@ -187,7 +198,7 @@ class Coordinate:
         self.config = ixchel.config
 
     def plot(self, ra, dec):
-        #get current coordinates
+        # get current coordinates
         c = SkyCoord(ra, dec, unit=(u.hour, u.deg))
         # look 24 hours into the future
         now = Time(datetime.datetime.utcnow(), scale='utc')
@@ -199,7 +210,7 @@ class Coordinate:
         sun_altaz_now_to_tomorrow = get_sun(
             times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
         plt.scatter(oneDay, object_altaz_now_to_tomorrow.alt,
-                    c=object_altaz_now_to_tomorrow.az, label='%s / %s'%(ra, dec), lw=0, s=20,
+                    c=object_altaz_now_to_tomorrow.az, label='%s / %s' % (ra, dec), lw=0, s=20,
                     cmap='viridis')
         plt.fill_between(oneDay.to('hr').value, 0, 90,
                          sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
@@ -212,10 +223,12 @@ class Coordinate:
         plt.ylim(0, 90)
         plt.xlabel('Hours [from now]')
         plt.ylabel('Altitude [deg]')
-        plot_png_file_path = self.config.get('misc', 'plot_file_path', 'plot.png') + 'plot.png'
+        plot_png_file_path = self.config.get(
+            'misc', 'plot_file_path', 'plot.png') + 'plot.png'
         plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
         plt.close()
-        self.ixchel.slack.send_file(plot_png_file_path, 'Celestial Coordinates Visibility')     
+        self.ixchel.slack.send_file(
+            plot_png_file_path, 'Celestial Coordinates Visibility')
 
 
 class Celestial:
@@ -227,8 +240,9 @@ class Celestial:
         Simbad.add_votable_fields('fluxdata(V)')
 
     def plot(self, celestialObject):
-        #get current coordinates
-        c = SkyCoord(celestialObject.ra, celestialObject.dec, unit=(u.hour, u.deg))
+        # get current coordinates
+        c = SkyCoord(celestialObject.ra, celestialObject.dec,
+                     unit=(u.hour, u.deg))
         # look 24 hours into the future
         now = Time(datetime.datetime.utcnow(), scale='utc')
         oneDay = np.linspace(0, 24, 1000)*u.hour
@@ -252,20 +266,23 @@ class Celestial:
         plt.ylim(0, 90)
         plt.xlabel('Hours [from now]')
         plt.ylabel('Altitude [deg]')
-        plot_png_file_path = self.config.get('misc', 'plot_file_path', 'plot.png') + 'plot.png'
+        plot_png_file_path = self.config.get(
+            'misc', 'plot_file_path', 'plot.png') + 'plot.png'
         plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
         plt.close()
-        self.ixchel.slack.send_file(plot_png_file_path, '%s Visibility' % celestialObject.name)     
-
+        self.ixchel.slack.send_file(
+            plot_png_file_path, '%s Visibility' % celestialObject.name)
 
     def find(self, search_string):
         celestials = []
         results = Simbad.query_object(search_string.upper().replace('*', ''))
         if results != None:
             for row in range(0, len(results)):
-                celestial = SkyObject(id = results['MAIN_ID'][row], name = results['MAIN_ID'][row].replace(' ', ''), type = 'Celestial', ra = results['RA'][row].replace(' ', ':'), dec = results['DEC'][row].replace(' ', ':'), vmag = '%.1f'%results['FLUX_V'][row])
-                celestials.append(celestial)     
+                celestial = SkyObject(id=results['MAIN_ID'][row], name=results['MAIN_ID'][row].replace(' ', ''), type='Celestial', ra=results['RA'][row].replace(
+                    ' ', ':'), dec=results['DEC'][row].replace(' ', ':'), vmag='%.1f' % results['FLUX_V'][row])
+                celestials.append(celestial)
         return celestials
+
 
 class Satellite:
 
@@ -287,12 +304,12 @@ class Satellite:
             # grab NORAD geosat data
             # if it's a zipped file, unzip first!
             if re.search('zip$', url):
-                zipfile = ZipFile(StringIO.StringIO(
-                    urllib2.urlopen(url).read()))
+                zipfile = ZipFile(BytesIO(
+                    urllib.urlopen(url).read()))
                 sats = zipfile.open(zipfile.namelist()[0]).readlines()
             else:
                 try:
-                    sats = urllib2.urlopen(url).readlines()
+                    sats = urllib.urlopen(url).readlines()
                 except Exception as e:
                     self.logger.error(
                         'Failed to open satellite database (%s). Exception (%s).' % (url, e))
@@ -300,8 +317,8 @@ class Satellite:
             # clean it up
             sats = [item.strip() for item in sats]
             # create an array of name, tle1, and tle2
-            sats = [(str.upper(sats[i]), sats[i+1], sats[i+2])
-                    for i in xrange(0, len(sats)-2, 3)]
+            sats = [((sats[i]).upper(), sats[i+1], sats[i+2])
+                    for i in range(0, len(sats)-2, 3)]
             # add sats to norad database
             db += sats
         self.logger.debug(
@@ -338,10 +355,12 @@ class Satellite:
         plt.ylim(0, 90)
         plt.xlabel('Hours [from now]')
         plt.ylabel('Altitude [deg]')
-        plot_png_file_path = self.config.get('misc', 'plot_file_path', 'plot.png') + 'plot.png'
+        plot_png_file_path = self.config.get(
+            'misc', 'plot_file_path', 'plot.png') + 'plot.png'
         plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
         plt.close()
-        self.ixchel.slack.send_file(plot_png_file_path, '%s Visibility' % satellite.name)      
+        self.ixchel.slack.send_file(
+            plot_png_file_path, '%s Visibility' % satellite.name)
 
     def find(self, search_string):
         satellites = []
@@ -350,8 +369,9 @@ class Satellite:
             #     got_match = (sat[0].find(search_string.upper().replace('*', '')) >= 0)
             # else:
             #     got_match = (sat[0] == search_string.upper())
-            #try always doing a partial search
-            got_match = (sat[0].find(search_string.upper().replace('*', '')) >= 0)
+            # try always doing a partial search
+            got_match = (sat[0].find(
+                search_string.upper().replace('*', '')) >= 0)
             if got_match:
                 name = sat[0]
                 tle1 = sat[1]
@@ -359,9 +379,11 @@ class Satellite:
                 sat_ephem = ephem.readtle(name, tle1, tle2)
                 self.observer.date = datetime.datetime.utcnow()
                 sat_ephem.compute(self.observer)
-                satellite = SkyObject(id = name, name = name, type = 'Satellite', tle1 = tle1, tle2 = tle2, ra = '%s'%sat_ephem.ra, dec = '%s'%sat_ephem.dec)
+                satellite = SkyObject(id=name, name=name, type='Satellite', tle1=tle1,
+                                      tle2=tle2, ra='%s' % sat_ephem.ra, dec='%s' % sat_ephem.dec)
                 satellites.append(satellite)
         return satellites
+
 
 class Sky:
     # current object list

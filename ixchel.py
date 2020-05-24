@@ -1,12 +1,12 @@
 import os
 import logging
-import ConfigParser
 import time
 import datetime
 import json
 import re
+import slack
 from ixchel_command import IxchelCommand
-from slack import Slack
+from slack_client import Slack
 from config import Config
 from telescope import Telescope
 
@@ -25,14 +25,6 @@ cfg_file_path = 'ixchel.cfg'
 
 
 class Ixchel:
-    # main loop delay
-    loop_delay_s = 0.5
-
-    # main ping delay
-    slack_ping_delay_s = 5
-
-    # reconnect delay
-    slack_reconnect_delay_s = 10
 
     def __init__(self, config):
         self.logger = logging.getLogger('Ixchel')
@@ -40,7 +32,6 @@ class Ixchel:
         self.config = config
         # init Slack interface
         self.slack = Slack(self)
-        self.slack.connect()
         # the telescope
         self.telescope = Telescope(self)
         # init IxchelCommand
@@ -50,45 +41,28 @@ class Ixchel:
         self.channel = self.config.get('slack', 'channel')
         self.channel_id = self.slack.get_channel_id(self.channel)
 
-    def loop(self):
-        # main loop
-        while True:
-            while self.slack.connected:
-                # check to be sure we are still connected to the server
-                self.slack.ping()
-                # get messages
-                messages = self.slack.read_messages()
-                # parse messages
-                self.parse(messages)
-                # sleep a bit
-                time.sleep(self.loop_delay_s)
-            # sleep before trying to reconnect
-            time.sleep(self.slack_reconnect_delay_s)
-            # reconnect
-            self.slack.connect()
+    def parse_message(self, **payload):
+        message = payload['data']
+        self.logger.debug(message)
+        self.logger.debug(message['channel'])
+        if 'username' in message:
+            self.logger.debug(message['username'])
+        if 'user' in message:
+            self.logger.debug(message['user'])
 
-    def parse(self, messages):
-        for message in messages:
-            if not 'type' in message:
-                continue
-            elif message['type'] == 'message':
-                # ignore any messages sent from this bot
-                if 'username' in message and message['username'] == self.username:
-                    continue
-                # only process commands from the self.channel
-                if 'channel' in message:
-                    # message posted in ixchel channel?
-                    if message['channel'] == self.channel_id:
-                        self.slack.send_typing()
-                        self.process(message)
-                    else:  # message posted directly to bot
-                        self.logger.debug('Received direct message.')
-                        self.slack.send_message('Please use the channel #%s for communications with %s.' % (
-                            self.channel, self.username), None, message['channel'], self.username)
-            elif message['type'] == 'pong':
-                self.logger.debug('Received pong message.')
-            else:
-                continue
+        # ignore any messages sent from this bot
+        if 'username' in message and message['username'] == self.username:
+            return
+        # only process commands from the self.channel
+        if 'channel' in message:
+            # message posted in ixchel channel?
+            if message['channel'] == self.channel_id:
+                # self.slack.send_typing()
+                self.process(message)
+            else:  # message posted directly to bot
+                self.logger.debug('Received direct message.')
+                self.slack.send_message('Please use the channel #%s for communications with %s.' % (
+                    self.channel, self.username), None, message['channel'], self.username)
 
     def process(self, message):
         if not 'text' in message:
@@ -112,7 +86,10 @@ def main():
 
     # Mayan goddess of the moon, medicine, and birth (mid-wifery). Stronger half of Itzamna!
     ixchel = Ixchel(config)
-    ixchel.loop()
+
+    # ixchel.loop()
+    ixchel.slack.rtm.on(event="message", callback=ixchel.parse_message)
+    ixchel.slack.rtm.start()
 
 
 if __name__ == "__main__":

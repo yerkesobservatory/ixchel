@@ -5,6 +5,8 @@ import datetime
 import time
 import os
 import slack
+import asyncio
+import concurrent
 
 
 class Slack:
@@ -19,11 +21,12 @@ class Slack:
         self.ping_delay_s = float(self.config.get('slack', 'ping_delay_s', 5))
         self.reconnect_delay_s = float(self.config.get(
             'slack', 'reconnect_delay_s', 10))
+        self.loop = asyncio.get_event_loop()
         # this is probably not needed anymore, but I am hanging on to it for now
         self.connected = True
         # init the slack client (RTM and Web Client)
         self.rtm = slack.RTMClient(
-            token=self.token, ping_interval=self.ping_delay_s, auto_reconnect=True)
+            token=self.token, ping_interval=self.ping_delay_s, auto_reconnect=True, run_async=True)
         self.web = slack.WebClient(token=self.token)
 
     # def send_typing(self, channel=None):

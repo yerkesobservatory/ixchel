@@ -27,11 +27,10 @@ class SSH:
                              key_filename=self.key_path)
             self.command('echo its alive', False)  # test the connection
             self.ixchel.slack.send_message('Connected to the telescope!')
-            # self.ixchel.slack.send_typing()
             return True
         except Exception as e:
             self.ixchel.slack.send_message(
-                'Failed to connect to the telescope! Retrying...')
+                'Failed to connect to the telescope!')
             self.logger.error(
                 'SSH initialization failed. Exception (%s).' % e)
         return False
@@ -43,13 +42,10 @@ class SSH:
             return self.command_foreground(command)
 
     def command_background(self, command):
-        # test connection
-        try:
-            self.ssh.exec_command('echo its alive')  # test the connection
-        except Exception as e:
-            self.logger.warning(
-                'SSH command failed. Exception (%s). Reconnecting...' % e)
-            self.connect()
+        if not self.is_connected():
+            self.logger.error(
+                'Background command (%s) failed. SSH client is not connected.' % command)
+            return False
         # run command
         result = {
             'response': None,
@@ -84,13 +80,10 @@ class SSH:
         return result
 
     def command_foreground(self, command):
-        # test connection
-        try:
-            self.ssh.exec_command('echo its alive')  # test the connection
-        except Exception as e:
-            self.logger.warning(
-                'SSH command failed. Exception (%s). Reconnecting...' % e)
-            self.connect()
+        if not self.is_connected():
+            self.logger.error(
+                'Foreground command (%s) failed. SSH client is not connected.' % command)
+            return False
         # run command
         result = {
             'response': None,
@@ -118,13 +111,9 @@ class SSH:
         return result
 
     def get_file(self, remote_path, local_path):
-        # test connection
-        try:
-            self.ssh.exec_command('echo its alive')  # test the connection
-        except Exception as e:
-            self.logger.warning(
-                'SSH command failed. Exception (%s). Reconnecting...' % e)
-            self.connect()
+        if not self.is_connected():
+            self.logger.error('SFTP failed. SSH client is not connected.')
+            return False
         try:
             sftp = self.ssh.open_sftp()
             sftp.get(remote_path, local_path)
@@ -133,6 +122,15 @@ class SSH:
             self.logger.error('SFTP failed. Exception (%s).' % e)
             return False
         return True
+
+    def is_connected(self):
+        try:
+            self.ssh.exec_command('echo its alive')  # test the connection
+            return True
+        except Exception as e:  # try to reconnect
+            self.logger.warning(
+                'SSH command failed. Exception (%s). Reconnecting...' % e)
+            return self.connect()
 
 
 class Telescope:

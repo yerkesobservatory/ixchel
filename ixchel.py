@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import logging
 import time
@@ -5,6 +6,8 @@ import datetime
 import json
 import re
 import slack
+import asyncio
+import signal
 from ixchel_command import IxchelCommand
 from slack_client import Slack
 from config import Config
@@ -41,7 +44,7 @@ class Ixchel:
         self.channel = self.config.get('slack', 'channel')
         self.channel_id = self.slack.get_channel_id(self.channel)
 
-    def parse_message(self, **payload):
+    async def parse_message(self, **payload):
         message = payload['data']
         self.logger.debug(message)
         self.logger.debug(message['channel'])
@@ -75,22 +78,45 @@ class Ixchel:
             self.logger.debug('Received non-command text (%s).' % text)
 
 
-def main():
-    logger.info('Starting ixchel...')
-
-    # read configuration file
-    logger.info('Reading configuration from file (%s)...' % cfg_file_path)
-    if not os.path.exists(cfg_file_path):
-        raise Exception('Configuration file (%s) is missing.' % cfg_file_path)
-    config = Config(cfg_file_path)
-
-    # Mayan goddess of the moon, medicine, and birth (mid-wifery). Stronger half of Itzamna!
-    ixchel = Ixchel(config)
-
-    # ixchel.loop()
-    ixchel.slack.rtm.on(event="message", callback=ixchel.parse_message)
-    ixchel.slack.rtm.start()
+async def loop():  # main loop
+    while True:
+        try:
+            logger.debug('Checking connection to the telescope...')
+            ixchel.telescope.ssh.is_connected()
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            break
 
 
-if __name__ == "__main__":
-    main()
+def cleanup(signum, frame):  # perform cleanup tasks
+    tasks.cancel()
+
+
+logger.info('Starting ixchel...')
+
+# read configuration file
+logger.info('Reading configuration from file (%s)...' % cfg_file_path)
+if not os.path.exists(cfg_file_path):
+    raise Exception('Configuration file (%s) is missing.' % cfg_file_path)
+config = Config(cfg_file_path)
+
+# Mayan goddess of the moon, medicine, and birth (mid-wifery). Stronger half of Itzamna!
+ixchel = Ixchel(config)
+
+# call back for incoming messages
+ixchel.slack.rtm.on(event="message", callback=ixchel.parse_message)
+
+# run slack and main loop concurrently
+tasks = asyncio.gather(ixchel.slack.rtm.start(), loop())
+
+# handle signals
+signal.signal(signal.SIGINT, cleanup)
+signal.signal(signal.SIGTERM, cleanup)
+loop = asyncio.get_event_loop()
+try:
+    loop.run_until_complete(tasks)
+except asyncio.CancelledError as e:
+    logger.error('Exception ( % s).' % e)
+finally:
+    logger.info("%s has stopped." % ixchel.username)
+    loop.close()

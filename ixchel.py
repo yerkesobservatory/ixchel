@@ -46,8 +46,6 @@ class Ixchel:
 
     async def parse_message(self, **payload):
         message = payload['data']
-        self.logger.debug(message)
-        self.logger.debug(message['channel'])
         if 'username' in message:
             self.logger.debug(message['username'])
         if 'user' in message:
@@ -81,9 +79,10 @@ class Ixchel:
 async def loop():  # main loop
     while True:
         try:
-            logger.debug('Checking connection to the telescope...')
+            logger.debug('Checking connections (Slack, telescope, etc.)...')
             ixchel.telescope.ssh.is_connected()
-            await asyncio.sleep(30)
+            ixchel.slack.is_connected()
+            await asyncio.sleep(10)
         except asyncio.CancelledError:
             break
 

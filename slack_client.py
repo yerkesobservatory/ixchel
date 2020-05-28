@@ -27,7 +27,8 @@ class Slack:
         # init the slack client (RTM and Web Client)
         self.rtm = slack.RTMClient(
             token=self.token, ping_interval=self.ping_delay_s, auto_reconnect=True, run_async=True)
-        self.web = slack.WebClient(token=self.token)
+        self.web = slack.WebClient(
+            token=self.token, run_async=False, use_sync_aiohttp=False)
 
     # def send_typing(self, channel=None):
     #     # use default values if none sent
@@ -37,6 +38,15 @@ class Slack:
     #         self.rtm.typing(channel)
     #     except Exception as e:
     #         self.logger.error('Could not send typing. Exception (%s).' % e)
+
+    def is_connected(self):
+        try:
+            self.rtm.ping()
+            return True
+        except SlackClientNotConnectedError as e:
+            self.logger.error(
+                'Slack RTM client is not connected. Exception (%s).' % e)
+            return False
 
     def send_block_message(self, block_message, channel=None, username=None):
         if not self.connected:

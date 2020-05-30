@@ -42,7 +42,7 @@ class Ixchel:
         # update settings
         self.username = self.config.get('slack', 'username')
         self.channel = self.config.get('slack', 'channel')
-        self.channel_id = self.slack.get_channel_id(self.channel)
+        self.channel_id = self.config.get('slack', 'channel_id')
 
     async def parse_message(self, **payload):
         message = payload['data']

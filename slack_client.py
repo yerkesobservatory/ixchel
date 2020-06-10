@@ -15,7 +15,7 @@ class Slack:
         self.ixchel = ixchel
         self.config = ixchel.config
         self.token = self.config.get('slack', 'token')
-        self.channel = self.config.get('slack', 'channel')
+        self.channel = self.config.get('slack', 'channel_name')
         self.username = self.config.get('slack', 'username')
         self.dt_last_ping = datetime.datetime.now()
         self.ping_delay_s = float(self.config.get('slack', 'ping_delay_s', 5))

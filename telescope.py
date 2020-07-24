@@ -251,6 +251,9 @@ class Telescope:
     def get_ccd(self, interface):
         self.getter(interface)
 
+    def set_ccd(self, interface):
+        self.getter(interface)
+
     def get_moon(self, interface):
         self.getter(interface)
 

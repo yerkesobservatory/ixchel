@@ -109,6 +109,21 @@ telescope_interfaces = {
             }
         }
     },
+    'set_ccd': {
+        'command': 'ccd {cool_warm} nowait',
+        'inputs': {
+            'cool_warm': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'success': {
+                'regex': r'^.*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'get_skycam': {
         'command': 'rm -f {skycam_remote_file_path}; spacam; mv spacam.jpg {skycam_remote_file_path};  [ -e "{skycam_remote_file_path}" ] && echo 1 || echo 0',
         'inputs': {

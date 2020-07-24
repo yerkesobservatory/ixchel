@@ -346,6 +346,27 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def set_ccd(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message(
+                'Please lock the telescope before calling this command.')
+            return
+        try:
+            telescope_interface = TelescopeInterface('set_ccd')
+            # assign input values
+            cool_warm = command.group(1)
+            telescope_interface.set_input_value('cool_warm', cool_warm)
+            # query telescope
+            self.telescope.set_ccd(telescope_interface)
+            # assign output values
+            success = telescope_interface.get_output_value('success')
+            # send output to Slack
+            self.logger.debug(success)
+            self.slack.send_message(
+                'CCD is %sing. Use \ccd to monitor.' % cool_warm)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def get_moon(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_moon')
@@ -1056,6 +1077,13 @@ class IxchelCommand:
                     'regex': r'^\\ccd$',
                     'function': self.get_ccd,
                     'description': '`\\ccd` shows CCD information',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\ccd\s(cool|warm)$',
+                    'function': self.set_ccd,
+                    'description': '`\\ccd <cool|warm>` cools/warms the CCD',
                     'hide': False
                 },
 

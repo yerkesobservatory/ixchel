@@ -110,18 +110,21 @@ telescope_interfaces = {
         }
     },
     'set_ccd': {
-        'command': 'ccd {cool_warm} nowait',
+        'command': 'ccd {cool_warm} nowait setpoint={setpoint} && echo 1 || echo 0',
         'inputs': {
             'cool_warm': {
+                'value': None
+            },
+            'setpoint': {
                 'value': None
             }
         },
         'outputs': {
             'success': {
-                'regex': r'^.*?$',
+                'regex': r'^[01]$',
                 'value': None,
-                'type': str
-            }
+                'type': int
+            },
         }
     },
     'get_skycam': {

@@ -80,6 +80,7 @@ class SSH:
         return result
 
     def command_foreground(self, command):
+        self.logger.debug(command)
         if not self.is_connected():
             self.logger.error(
                 'Foreground command (%s) failed. SSH client is not connected.' % command)
@@ -252,7 +253,7 @@ class Telescope:
         self.getter(interface)
 
     def set_ccd(self, interface):
-        self.getter(interface)
+        self.setter(interface)
 
     def get_moon(self, interface):
         self.getter(interface)

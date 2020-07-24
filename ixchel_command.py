@@ -356,14 +356,19 @@ class IxchelCommand:
             # assign input values
             cool_warm = command.group(1)
             telescope_interface.set_input_value('cool_warm', cool_warm)
+            setpoint = command.group(2)
+            telescope_interface.set_input_value('setpoint', setpoint)
             # query telescope
             self.telescope.set_ccd(telescope_interface)
             # assign output values
             success = telescope_interface.get_output_value('success')
             # send output to Slack
-            self.logger.debug(success)
-            self.slack.send_message(
-                'CCD is %sing. Use \ccd to monitor.' % cool_warm)
+            if success:
+                self.slack.send_message(
+                    'CCD is %sing (setpoint is %s°C). Use \ccd to monitor.' % (cool_warm, setpoint))
+            else:
+                self.slack.send_message(
+                    'Failed to adjust CCD cooling settings.')
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1081,9 +1086,9 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\ccd\s(cool|warm)$',
+                    'regex': r'^\\ccd\s(cool|warm)\s([\.\+\-0-9]*)$',
                     'function': self.set_ccd,
-                    'description': '`\\ccd <cool|warm>` cools/warms the CCD',
+                    'description': '`\\ccd <cool|warm> <T (°C)>` cools/warms CCD to specified temperature, T.',
                     'hide': False
                 },
 

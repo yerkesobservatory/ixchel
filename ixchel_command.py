@@ -335,12 +335,14 @@ class IxchelCommand:
             name = telescope_interface.get_output_value('name')
             tchip = telescope_interface.get_output_value('tchip')
             setpoint = telescope_interface.get_output_value('setpoint')
+            drive = telescope_interface.get_output_value('drive')
             # send output to Slack
             self.slack.send_message('CCD:')
             self.slack.send_message('>Type: %s' % name)
             self.slack.send_message('>Pixels: %d x %d' % (nrow, ncol))
             self.slack.send_message('>Temperature: %.1f° C' % tchip)
             self.slack.send_message('>Set Point: %.1f° C' % setpoint)
+            self.slack.send_message('>Cooler Drive: %d%%' % drive)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -903,7 +905,7 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\track(\s(?:on|off))?$',
+                    'regex': r'^\\track(\s(?:on|off))$',
                     'function': self.track,
                     'description': '`\\track <on/off> toggles telescope tracking',
                     'hide': True

@@ -102,6 +102,11 @@ telescope_interfaces = {
                 'value': None,
                 'type': str
             },
+            'drive': {
+                'regex': r'(?<=drive=).*?$',
+                'value': None,
+                'type': int
+            }
         }
     },
     'get_skycam': {

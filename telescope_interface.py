@@ -318,7 +318,7 @@ telescope_interfaces = {
         },
         'outputs': {
             'success': {
-                'regex': r'^done lock$',
+                'regex': r'^done lock',
                 'value': None,
                 'optional': False,
                 'type': str
@@ -331,7 +331,7 @@ telescope_interfaces = {
         },
         'outputs': {
             'success': {
-                'regex': r'^done lock$',
+                'regex': r'^done lock',
                 'value': None,
                 'optional': False,
                 'type': str
@@ -405,7 +405,8 @@ telescope_interfaces = {
             'slewing': {
                 'regex': r'(?<=slewing=).*?$',
                 'value': None,
-                'type': int
+                'type': int,
+                'optional': True
             }
         }
     },

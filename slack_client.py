@@ -51,7 +51,7 @@ class Slack:
     def send_block_message(self, block_message, channel=None, username=None):
         if not self.connected:
             self.logger.warning(
-                'Could not send message (%s). Not connected.' % message)
+                'Could not send message (%s). Not connected.' % block_message)
             return False
         # use default values if none sent
         if channel == None:
@@ -59,9 +59,9 @@ class Slack:
         if username == None:
             username = self.username
         try:
-            self.web.api_call(
-                "chat.postMessage",
+            self.web.chat_postMessage(
                 channel=channel,
+                # text=message,
                 blocks=json.loads(block_message),
                 username=username
             )

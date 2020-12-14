@@ -371,12 +371,13 @@ class Satellite:
             #     got_match = (sat[0] == search_string.upper())
             # try always doing a partial search
             got_match = (sat[0].find(
-                search_string.upper().replace('*', '')) >= 0)
+                search_string.upper().replace('*', '').encode()) >= 0)
             if got_match:
                 name = sat[0]
                 tle1 = sat[1]
                 tle2 = sat[2]
-                sat_ephem = ephem.readtle(name, tle1, tle2)
+                sat_ephem = ephem.readtle(
+                    name.decode(), tle1.decode(), tle2.decode())
                 self.observer.date = datetime.datetime.utcnow()
                 sat_ephem.compute(self.observer)
                 satellite = SkyObject(id=name, name=name, type='Satellite', tle1=tle1,

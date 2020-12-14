@@ -299,8 +299,8 @@ class query():
 
         # check if data exist
         if self.data is None or len(self.data) == 0:
-            print ('CALLHORIZONS ERROR: run get_ephemerides or get_elements',
-                   'first')
+            print('CALLHORIZONS ERROR: run get_ephemerides or get_elements',
+                  'first')
             return None
 
         return self.data[key]
@@ -465,8 +465,8 @@ class query():
 
         if self.discreteepochs is not None:
             if len(self.discreteepochs) > 15:
-                print ('CALLHORIZONS WARNING: more than 15 discrete epochs',
-                       'provided; output may be truncated.')
+                print('CALLHORIZONS WARNING: more than 15 discrete epochs',
+                      'provided; output may be truncated.')
             url += "&TLIST="
             for date in self.discreteepochs:
                 url += "'" + str(date) + "'"
@@ -585,11 +585,11 @@ class query():
                         this_eph.append('n.a.')
                     fieldnames.append('lunar_presence')
                     datatypes.append(object)
-                if (item.find('R.A._(ICRF/J2000.0)') > -1):
+                if (item.find('R.A._(ICRF)') > -1):
                     this_eph.append(np.float64(line[idx]))
                     fieldnames.append('RA')
                     datatypes.append(np.float64)
-                if (item.find('DEC_(ICRF/J2000.0)') > -1):
+                if (item.find('DEC_(ICRF)') > -1):
                     this_eph.append(np.float64(line[idx]))
                     fieldnames.append('DEC')
                     datatypes.append(np.float64)
@@ -894,10 +894,9 @@ class query():
               + "&CENTER='" + str(center) + "'" \
               + "&OUT_UNITS='AU-D'" \
               + "&REF_PLANE='ECLIPTIC'" \
-              + "REF_SYSTEM='J2000'" \
+              + "&REF_SYSTEM='J2000'" \
               + "&TP_TYPE='ABSOLUTE'" \
               + "&ELEM_LABELS='YES'" \
-              + "CSV_FORMAT='YES'" \
               + "&OBJ_DATA='YES'"
 
         # check if self.targetname is a designation
@@ -915,8 +914,8 @@ class query():
 
         if self.discreteepochs is not None:
             if len(self.discreteepochs) > 15:
-                print ('CALLHORIZONS WARNING: more than 15 discrete epochs ',
-                       'provided; output may be truncated.')
+                print('CALLHORIZONS WARNING: more than 15 discrete epochs ',
+                      'provided; output may be truncated.')
             url += "&TLIST="
             for date in self.discreteepochs:
                 url += "'" + str(date) + "'"

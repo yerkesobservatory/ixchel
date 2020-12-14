@@ -234,7 +234,7 @@ class IxchelCommand:
                         AltAz(obstime=telescope_now, location=telescope))
                     # report += '%d.\t%s object (%s) found at RA=%s, DEC=%s, ALT=%f, AZ=%f, VMAG=%s.\n' % (
                     #    index, skyObject.type, skyObject.name, skyObject.ra, skyObject.dec, altaz.alt.degree, altaz.az.degree, skyObject.vmag)
-                    report = find_format_string.format(Index=str(index), Name=skyObject.name.decode(), Type=skyObject.type, RA=skyObject.ra,
+                    report = find_format_string.format(Index=str(index), Name=skyObject.name, Type=skyObject.type, RA=skyObject.ra,
                                                        DEC=skyObject.dec, Altitude='%.1f°' % altaz.alt.degree, Azimuth='%.1f°' % altaz.az.degree, V=skyObject.vmag)
                     self.slack.send_block_message(report)
                     index += 1

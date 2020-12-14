@@ -77,7 +77,7 @@ class SolarSystem:
             # user JPL Horizons batch to find matches
             f = urllib.urlopen('https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=l&COMMAND="%s"' %
                                urllib.quote(search_strings[repeat].upper()))
-            output = f.read()  # the whole enchilada
+            output = f.read().decode()  # the whole enchilada
             lines = output.splitlines()  # line by line
             # no matches? go home
             if re.search('No matches found', output):
@@ -186,6 +186,8 @@ class SolarSystem:
                 ), name=result['targetname'][0], type='Solar System', ra=ra, dec=dec, vmag='%.1f' % result['V'][0])
                 solarSystemObjects.append(solarSystemObject)
             except Exception as e:
+                self.logger.error(
+                    'Error. Could not determine RA/DEC of small body. Exception (%s).' % e)
                 pass
         return solarSystemObjects
 
@@ -278,7 +280,7 @@ class Celestial:
         results = Simbad.query_object(search_string.upper().replace('*', ''))
         if results != None:
             for row in range(0, len(results)):
-                celestial = SkyObject(id=results['MAIN_ID'][row], name=results['MAIN_ID'][row].replace(' ', ''), type='Celestial', ra=results['RA'][row].replace(
+                celestial = SkyObject(id=results['MAIN_ID'][row], name=results['MAIN_ID'][row].decode().replace(' ', ''), type='Celestial', ra=results['RA'][row].replace(
                     ' ', ':'), dec=results['DEC'][row].replace(' ', ':'), vmag='%.1f' % results['FLUX_V'][row])
                 celestials.append(celestial)
         return celestials
@@ -380,7 +382,7 @@ class Satellite:
                     name.decode(), tle1.decode(), tle2.decode())
                 self.observer.date = datetime.datetime.utcnow()
                 sat_ephem.compute(self.observer)
-                satellite = SkyObject(id=name, name=name, type='Satellite', tle1=tle1,
+                satellite = SkyObject(id=name, name=name.decode(), type='Satellite', tle1=tle1,
                                       tle2=tle2, ra='%s' % sat_ephem.ra, dec='%s' % sat_ephem.dec)
                 satellites.append(satellite)
         return satellites

@@ -70,7 +70,7 @@ telescope_interfaces = {
                 'regex': r'^.*$',
                 'value': None,
                 'type': str
-            },
+            }
         }
     },
     'get_ccd': {
@@ -143,6 +143,34 @@ telescope_interfaces = {
                 'value': None,
                 'type': int
             },
+        }
+    },
+    # scp -r -q -i $STARS_PRIVATE_KEY_PATH -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${SRC} $STARS_USERNAME@$STARS_SERVER:${DEST}/
+    'to_stars': {
+        'command': 'scp -r -q -i {stars_key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {image_remote_dir}/. {stars_user}@{stars_url}:{stars_remote_dir}',
+        'inputs': {
+            'image_remote_dir': {
+                'value': None
+            },
+            'stars_remote_dir': {
+                'value': None
+            },
+            'stars_key_path': {
+                'value': None
+            },
+            'stars_user': {
+                'value': None
+            },
+            'stars_url': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'error': {
+                'regex': r'^.*$',
+                'value': None,
+                'type': str
+            }
         }
     },
     'convert_fits_to_jpg': {

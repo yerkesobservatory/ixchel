@@ -237,6 +237,9 @@ class Telescope:
     def get_skycam(self, interface):
         self.setter(interface)
 
+    def to_stars(self, interface):
+        self.setter(interface)
+
     def get_image(self, interface):
         self.setter(interface)
 

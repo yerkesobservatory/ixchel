@@ -501,12 +501,13 @@ class IxchelCommand:
             filter = command.group(3)
             exposure = int(command.group(1))
             bin = int(command.group(2))
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-                self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
-            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + \
-                '/' + \
-                self.slack.get_user_by_id(user['id']).get(
-                    'name', user['id']) + '/'
+                self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                slack_user + '/'
             error = self._get_image(exposure, bin, filter, path, fname, False)
             if error == '':
                 self.slack.send_message(
@@ -522,12 +523,13 @@ class IxchelCommand:
             filter = self.config.get('telescope', 'filter_for_darks')
             exposure = int(command.group(1))
             bin = int(command.group(2))
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-                'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
-            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + \
-                '/' + \
-                self.slack.get_user_by_id(user['id']).get(
-                    'name', user['id']) + '/'
+                'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                slack_user + '/'
             error = self._get_image(exposure, bin, filter, path, fname, True)
             if error == '':
                 self.slack.send_message(
@@ -543,12 +545,13 @@ class IxchelCommand:
             filter = self.config.get('telescope', 'filter_for_darks')
             exposure = self.config.get('telescope', 'exposure_for_bias')
             bin = int(command.group(1))
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-                'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), self.username.lower(), 0)
-            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d_%H%M%S') + \
-                '/' + \
-                self.slack.get_user_by_id(user['id']).get(
-                    'name', user['id']) + '/'
+                'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                slack_user + '/'
             error = self._get_image(exposure, bin, filter, path, fname, True)
             if error == '':
                 self.slack.send_message(

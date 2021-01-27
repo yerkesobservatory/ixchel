@@ -280,8 +280,13 @@ class Celestial:
         results = Simbad.query_object(search_string.upper().replace('*', ''))
         if results != None:
             for row in range(0, len(results)):
-                celestial = SkyObject(id=results['MAIN_ID'][row], name=results['MAIN_ID'][row].decode().replace(' ', ''), type='Celestial', ra=results['RA'][row].replace(
-                    ' ', ':'), dec=results['DEC'][row].replace(' ', ':'), vmag='%.1f' % results['FLUX_V'][row])
+                # why doesn't Simbad always return utf8?
+                try:
+                    celestial = SkyObject(id=results['MAIN_ID'][row], name=results['MAIN_ID'][row].decode().replace(' ', ''), type='Celestial', ra=results['RA'][row].replace(
+                        ' ', ':'), dec=results['DEC'][row].replace(' ', ':'), vmag='%.1f' % results['FLUX_V'][row])
+                except:
+                    celestial = SkyObject(id=results['MAIN_ID'][row], name=results['MAIN_ID'][row].replace(' ', ''), type='Celestial', ra=results['RA'][row].replace(
+                        ' ', ':'), dec=results['DEC'][row].replace(' ', ':'), vmag='%.1f' % results['FLUX_V'][row])
                 celestials.append(celestial)
         return celestials
 

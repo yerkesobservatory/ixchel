@@ -324,6 +324,43 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def get_slit(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_slit')
+            # query telescope
+            self.telescope.get_slit(telescope_interface)
+            # assign values
+            open_close = telescope_interface.get_output_value('open_close')
+            # send output to Slack
+            self.slack.send_message('The slit is %s.' % open_close.strip())
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def set_slit(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message(
+                'Please lock the telescope before calling this command.')
+            return
+        try:
+            telescope_interface = TelescopeInterface('set_slit')
+            # assign input values
+            open_close = command.group(1).strip()
+            telescope_interface.set_input_value('open_close', open_close)
+            # query telescope
+            self.telescope.set_slit(telescope_interface)
+            # assign output values
+            open_closed = telescope_interface.get_output_value(
+                'open_close').strip()
+            success = (open_closed.find(open_close) >= 0)
+            # send output to Slack
+            if success:
+                self.slack.send_message('The slit is %s.' % open_closed)
+            else:
+                self.slack.send_message(
+                    'Failed to %s slit.' % open_close)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def get_ccd(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_ccd')
@@ -1152,7 +1189,21 @@ class IxchelCommand:
                     'function': self.to_stars,
                     'description': '`\\tostars` uploads images to http://stars.uchicago.edu',
                     'hide': False
-                }
+                },
+
+                {
+                    'regex': r'^\\slit$',
+                    'function': self.get_slit,
+                    'description': '`\\slit` shows status of dome slit',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\slit\s(open|close)$',
+                    'function': self.set_slit,
+                    'description': '`\\slit <open|close>` opens/closes the dome slit.',
+                    'hide': False
+                },
             ]
         except Exception as e:
             raise Exception(

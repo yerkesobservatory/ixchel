@@ -73,6 +73,32 @@ telescope_interfaces = {
             }
         }
     },
+    'get_slit': {
+        'command': 'tx slit',
+        'inputs': {},
+        'outputs': {
+            'open_close': {
+                'regex': r'(?<=slit=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
+    'set_slit': {
+        'command': 'tx slit {open_close}',
+        'inputs': {
+            'open_close': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'open_close': {
+                'regex': r'(?<=slit=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'get_ccd': {
         'command': 'tx ccd_status',
         'inputs': {},

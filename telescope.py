@@ -252,6 +252,12 @@ class Telescope:
     def get_sun(self, interface):
         self.getter(interface)
 
+    def get_slit(self, interface):
+        self.getter(interface)
+
+    def set_slit(self, interface):
+        self.setter(interface)
+
     def get_ccd(self, interface):
         self.getter(interface)
 

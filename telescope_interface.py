@@ -84,6 +84,17 @@ telescope_interfaces = {
             }
         }
     },
+    'center_dome': {
+        'command': 'tx dome center',
+        'inputs': {},
+        'outputs': {
+            'az': {
+                'regex': r'(?<=az=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'get_slit': {
         'command': 'tx slit',
         'inputs': {},

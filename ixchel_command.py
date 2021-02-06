@@ -332,7 +332,25 @@ class IxchelCommand:
             # assign values
             az = telescope_interface.get_output_value('az')
             # send output to Slack
-            self.slack.send_message('The dome azimuth is %s°.' % az.strip())
+            self.slack.send_message(
+                'The dome slit azimuth is %s°.' % az.strip())
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def center_dome(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message(
+                'Please lock the telescope before calling this command.')
+            return
+        try:
+            telescope_interface = TelescopeInterface('center_dome')
+            # query telescope
+            self.telescope.center_dome(telescope_interface)
+            # assign values
+            az = telescope_interface.get_output_value('az')
+            # send output to Slack
+            self.slack.send_message(
+                'The dome slit is centered (az=%s°).' % az.strip())
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1220,7 +1238,14 @@ class IxchelCommand:
                 {
                     'regex': r'^\\dome$',
                     'function': self.get_dome,
-                    'description': '`\\dome` shows dome azimuth',
+                    'description': '`\\dome` shows dome slit azimuth',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\dome\scenter$',
+                    'function': self.center_dome,
+                    'description': '`\\dome center` centers the dome slit on telescope',
                     'hide': False
                 },
             ]

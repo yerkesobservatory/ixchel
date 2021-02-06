@@ -324,6 +324,18 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def get_dome(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_dome')
+            # query telescope
+            self.telescope.get_dome(telescope_interface)
+            # assign values
+            az = telescope_interface.get_output_value('az')
+            # send output to Slack
+            self.slack.send_message('The dome azimuth is %s°.' % az.strip())
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def get_slit(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_slit')
@@ -1202,6 +1214,13 @@ class IxchelCommand:
                     'regex': r'^\\slit\s(open|close)$',
                     'function': self.set_slit,
                     'description': '`\\slit <open|close>` opens/closes the dome slit.',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\dome$',
+                    'function': self.get_dome,
+                    'description': '`\\dome` shows dome azimuth',
                     'hide': False
                 },
             ]

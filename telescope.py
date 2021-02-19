@@ -54,6 +54,7 @@ class SSH:
             'pid': None
         }
         try:
+            self.logger.debug('Running background command: %s' % command)
             stdin, stdout, stderr = self.ssh.exec_command('%s &' % command)
             result['stdout'] = stdout.readlines()
             result['stderr'] = stderr.readlines()
@@ -93,6 +94,7 @@ class SSH:
             'pid': None
         }
         try:
+            self.logger.debug('Running foreground command: %s' % command)
             stdin, stdout, stderr = self.ssh.exec_command(command)
             result['stdout'] = stdout.readlines()
             result['stderr'] = stderr.readlines()

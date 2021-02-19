@@ -95,6 +95,38 @@ telescope_interfaces = {
             }
         }
     },
+    'home_domer': {
+        'command': 'tx home domer',
+        'inputs': {},
+        'outputs': {
+            'az_hit': {
+                'regex': r'(?<=az_hit=).*?(?= )',
+                'value': None,
+                'type': int
+            },
+            'rem': {
+                'regex': r'(?<=rem=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
+    'home_domel': {
+        'command': 'tx home domel',
+        'inputs': {},
+        'outputs': {
+            'az_hit': {
+                'regex': r'(?<=az_hit=).*?(?= )',
+                'value': None,
+                'type': int
+            },
+            'rem': {
+                'regex': r'(?<=rem=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'get_slit': {
         'command': 'tx slit',
         'inputs': {},
@@ -193,11 +225,13 @@ telescope_interfaces = {
             },
         }
     },
-    # scp -r -q -i $STARS_PRIVATE_KEY_PATH -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${SRC} $STARS_USERNAME@$STARS_SERVER:${DEST}/
+    # rsync -av --include="2021" --include="2021/2021-01-20" --include="2021/2021-01-20/***" --exclude="*" /home/itzamna/images/ rprechelt@stars.uchicago.edu:/data/images/StoneEdge/0.5meter
+    # rsync -av --include="{YYYY}" --include="{YYYY}/{YY-mm-dd}" --include="{YYYY}/{YY-mm-dd}/***" --exclude="*" {itzamna_image_dir}/ {stars_user}@{stars_url}:{stars_remote_dir}
     'to_stars': {
-        'command': 'scp -r -q -i {stars_key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {image_remote_dir}/. {stars_user}@{stars_url}:{stars_remote_dir}',
+        'command': 'rsync -av --include="{year}" --include="{year}/{date}" --include="{year}/{date}/***" --exclude="*" {itzamna_image_dir}/ {stars_user}@{stars_url}:{stars_remote_dir}',
+        'is_background': True,
         'inputs': {
-            'image_remote_dir': {
+            'itzamna_image_dir': {
                 'value': None
             },
             'stars_remote_dir': {
@@ -211,6 +245,12 @@ telescope_interfaces = {
             },
             'stars_url': {
                 'value': None
+            },
+            'year': {
+                'value': None
+            },
+            'date': {
+                'value': None
             }
         },
         'outputs': {
@@ -221,6 +261,34 @@ telescope_interfaces = {
             }
         }
     },
+    # # scp -r -q -i $STARS_PRIVATE_KEY_PATH -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${SRC} $STARS_USERNAME@$STARS_SERVER:${DEST}/
+    # 'to_stars': {
+    #     'command': 'scp -r -q -i {stars_key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {image_dir}/. {stars_user}@{stars_url}:{stars_remote_dir}',
+    #     'inputs': {
+    #         'image_dir': {
+    #             'value': None
+    #         },
+    #         'stars_remote_dir': {
+    #             'value': None
+    #         },
+    #         'stars_key_path': {
+    #             'value': None
+    #         },
+    #         'stars_user': {
+    #             'value': None
+    #         },
+    #         'stars_url': {
+    #             'value': None
+    #         }
+    #     },
+    #     'outputs': {
+    #         'error': {
+    #             'regex': r'^.*$',
+    #             'value': None,
+    #             'type': str
+    #         }
+    #     }
+    # },
     'convert_fits_to_jpg': {
         'command': 'rm -f {jpg_file}; rm -f {tiff_file}; stiffy {fits_file} {tiff_file}; convert -resize 50% -normalize -quality 75 {tiff_file} {jpg_file};  [ -e "{jpg_file}" ] && echo 1 || echo 0',
         'inputs': {

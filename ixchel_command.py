@@ -70,8 +70,8 @@ class IxchelCommand:
         self.username = self.config.get('slack', 'username')
         self.slack = ixchel.slack
         self.telescope = ixchel.telescope
-        self.image_remote_dir = self.config.get(
-            'telescope', 'image_remote_dir')
+        self.image_dir = self.config.get(
+            'telescope', 'image_dir')
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
@@ -354,6 +354,32 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def home_dome(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message(
+                'Please lock the telescope before calling this command.')
+            return
+        try:
+            # right
+            telescope_interface = TelescopeInterface('home_domer')
+            # query telescope
+            self.telescope.home_domer(telescope_interface)
+            # assign values
+            az_hit = telescope_interface.get_output_value('az_hit')
+            rem = telescope_interface.get_output_value('rem')
+            # left
+            telescope_interface = TelescopeInterface('home_domel')
+            # query telescope
+            self.telescope.home_domel(telescope_interface)
+            # assign values
+            az_hit = telescope_interface.get_output_value('az_hit')
+            rem = telescope_interface.get_output_value('rem')
+            # send output to Slack
+            self.slack.send_message(
+                'The dome is calibrated.')
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def get_slit(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_slit')
@@ -572,7 +598,7 @@ class IxchelCommand:
                 user['id']).get('name', user['id'])
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
                 self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+            path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
             error = self._get_image(exposure, bin, filter, path, fname, False)
@@ -594,7 +620,7 @@ class IxchelCommand:
                 user['id']).get('name', user['id'])
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
                 'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+            path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
             error = self._get_image(exposure, bin, filter, path, fname, True)
@@ -616,7 +642,7 @@ class IxchelCommand:
                 user['id']).get('name', user['id'])
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
                 'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            path = self.image_remote_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+            path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
             error = self._get_image(exposure, bin, filter, path, fname, True)
@@ -794,13 +820,14 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
+# 'command': 'rsync -av --include="{year}" --include="{year}/{date}" --include="{year}/{date}/***" --exclude="*" {itzamna_image_dir}/ {stars_user}@{stars_url}:{stars_remote_dir}',
     def to_stars(self, command, user):
         # get sky image from SEO camera
         try:
             telescope_interface = TelescopeInterface('to_stars')
             # assign input
-            telescope_interface.set_input_value('image_remote_dir', self.config.get(
-                'telescope', 'image_remote_dir'))
+            telescope_interface.set_input_value('itzamna_image_dir', self.config.get(
+                'telescope', 'itzamna_image_dir'))
             telescope_interface.set_input_value('stars_remote_dir', self.config.get(
                 'stars_server', 'stars_remote_dir'))
             telescope_interface.set_input_value('stars_key_path', self.config.get(
@@ -809,14 +836,42 @@ class IxchelCommand:
                 'stars_server', 'stars_user'))
             telescope_interface.set_input_value('stars_url', self.config.get(
                 'stars_server', 'stars_url'))
+            telescope_interface.set_input_value(
+                'year', datetime.datetime.utcnow().strftime('%Y'))
+            telescope_interface.set_input_value(
+                'date', datetime.datetime.utcnow().strftime('%Y-%m-%d'))
             # create a command that applies the specified values
             self.telescope.to_stars(telescope_interface)
             # add error handling here?
             self.slack.send_message(
-                "Files successfully uploaded to http://stars.uchicago.edu!")
+                "Images uploading to http://stars.uchicago.edu. Ready for your next command.")
         except Exception as e:
             self.handle_error(command.group(
-                0), 'Failed to upload files to http://stars.uchicago.edu. Exception (%s).' % (e))
+                0), 'Failed to upload images to http://stars.uchicago.edu. Exception (%s).' % (e))
+
+    # def to_stars(self, command, user):
+    #     # get sky image from SEO camera
+    #     try:
+    #         telescope_interface = TelescopeInterface('to_stars')
+    #         # assign input
+    #         telescope_interface.set_input_value('image_dir', self.config.get(
+    #             'telescope', 'image_dir'))
+    #         telescope_interface.set_input_value('stars_remote_dir', self.config.get(
+    #             'stars_server', 'stars_remote_dir'))
+    #         telescope_interface.set_input_value('stars_key_path', self.config.get(
+    #             'stars_server', 'stars_key_path'))
+    #         telescope_interface.set_input_value('stars_user', self.config.get(
+    #             'stars_server', 'stars_user'))
+    #         telescope_interface.set_input_value('stars_url', self.config.get(
+    #             'stars_server', 'stars_url'))
+    #         # create a command that applies the specified values
+    #         self.telescope.to_stars(telescope_interface)
+    #         # add error handling here?
+    #         self.slack.send_message(
+    #             "Files successfully uploaded to http://stars.uchicago.edu!")
+    #     except Exception as e:
+    #         self.handle_error(command.group(
+    #             0), 'Failed to upload files to http://stars.uchicago.edu. Exception (%s).' % (e))
 
     def get_weather(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
@@ -1248,6 +1303,13 @@ class IxchelCommand:
                     'description': '`\\dome center` centers the dome slit on telescope',
                     'hide': False
                 },
+
+                {
+                    'regex': r'^\\home\sdome$',
+                    'function': self.home_dome,
+                    'description': '`\\home dome` calibrates the dome movement',
+                    'hide': False
+                }
             ]
         except Exception as e:
             raise Exception(

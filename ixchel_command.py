@@ -844,7 +844,7 @@ class IxchelCommand:
             self.telescope.to_stars(telescope_interface)
             # add error handling here?
             self.slack.send_message(
-                "Images uploading to http://stars.uchicago.edu. Ready for your next command.")
+                "Images uploaded to http://stars.uchicago.edu.")
         except Exception as e:
             self.handle_error(command.group(
                 0), 'Failed to upload images to http://stars.uchicago.edu. Exception (%s).' % (e))

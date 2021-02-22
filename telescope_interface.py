@@ -227,9 +227,11 @@ telescope_interfaces = {
     },
     # rsync -av --include="2021" --include="2021/2021-01-20" --include="2021/2021-01-20/***" --exclude="*" /home/itzamna/images/ rprechelt@stars.uchicago.edu:/data/images/StoneEdge/0.5meter
     # rsync -av --include="{YYYY}" --include="{YYYY}/{YY-mm-dd}" --include="{YYYY}/{YY-mm-dd}/***" --exclude="*" {itzamna_image_dir}/ {stars_user}@{stars_url}:{stars_remote_dir}
+    # bash -c "rsync --progress --files-from=<(find /home/itzamna/images -mtime -3 -type f | sed -n 's|^/home/itzamna/images||p') /home/itzamna/images  rprechelt@stars.uchicago.edu:/data/images/StoneEdge/0.5meter"
     'to_stars': {
-        'command': 'rsync -av --include="{year}" --include="{year}/{date}" --include="{year}/{date}/***" --exclude="*" {itzamna_image_dir}/ {stars_user}@{stars_url}:{stars_remote_dir}',
-        'is_background': True,
+        #        'command': 'rsync -av --include="{year}" --include="{year}/{date}" --include="{year}/{date}/***" --exclude="*" {itzamna_image_dir}/ {stars_user}@{stars_url}:{stars_remote_dir}',
+        'command': 'bash -c "rsync -av --progress --files-from=<(find {itzamna_image_dir} -mtime -3 -type f | sed -n \'s|^{itzamna_image_dir}||p\') {itzamna_image_dir} {stars_user}@{stars_url}:{stars_remote_dir}"',
+        'is_background': False,
         'inputs': {
             'itzamna_image_dir': {
                 'value': None

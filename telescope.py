@@ -58,6 +58,8 @@ class SSH:
             stdin, stdout, stderr = self.ssh.exec_command('%s &' % command)
             result['stdout'] = stdout.readlines()
             result['stderr'] = stderr.readlines()
+            self.logger.debug(result['stdout'])
+            self.logger.debug(result['stderr'])
             if len(result['stdout']) > 0:
                 result['response'] = result['stdout'][0]
                 # get the pid
@@ -98,6 +100,8 @@ class SSH:
             stdin, stdout, stderr = self.ssh.exec_command(command)
             result['stdout'] = stdout.readlines()
             result['stderr'] = stderr.readlines()
+            self.logger.debug(result['stdout'])
+            self.logger.debug(result['stderr'])
             if len(result['stdout']) > 0:
                 result['response'] = result['stdout'][0]
             elif len(result['stderr']) > 0:

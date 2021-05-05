@@ -60,7 +60,7 @@ class IxchelCommand:
 
     commands = []
     skyObjects = []
-    target_name = 'unknown'
+    targetName = 'unknown'
 
     def __init__(self, ixchel):
         self.logger = logging.getLogger('IxchelCommand')
@@ -72,6 +72,7 @@ class IxchelCommand:
         self.telescope = ixchel.telescope
         self.image_dir = self.config.get(
             'telescope', 'image_dir')
+        self.hdr = False
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
@@ -153,7 +154,7 @@ class IxchelCommand:
                 id = 1
             # ensure object id is valid
             if id < 1 or id > len(self.skyObjects):
-                self.slack.send_message('%s does not recognize that object id (%d).' % (
+                self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
                     self.config.get('slack', 'username'), id))
                 return
             # find corresponding object
@@ -192,7 +193,7 @@ class IxchelCommand:
             id = 1
         # ensure object id is valid
         if id < 1 or id > len(self.skyObjects):
-            self.slack.send_message('%s does not recognize that object id (%d).' % (
+            self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
                 self.config.get('slack', 'username'), id))
             return
         # find corresponding object
@@ -417,6 +418,26 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def get_hdr(self, command, user):
+        try:
+            if (self.hdr):
+                self.slack.send_message('HDR mode is on.')
+            else:
+                self.slack.send_message('HDR mode is off.')
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def set_hdr(self, command, user):
+        try:
+            on_off = command.group(1)
+            if (on_off == 'on'):
+                self.hdr = True
+            else:
+                self.hdr = False
+            self.get_hdr(command, user)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def get_ccd(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_ccd')
@@ -572,7 +593,7 @@ class IxchelCommand:
             raise ValueError(
                 'Failed to send the fits file (%s) to Slack.' % fits_file)
 
-    def _get_image(self, exposure, bin, filter, path, fname, is_dark=False):
+    def _get_image(self, exposure, bin, filter, path, fname, is_dark=False, is_hdr=False):
         # try:
         # set filter
         self._set_filter(filter)
@@ -584,10 +605,10 @@ class IxchelCommand:
         telescope_interface.set_input_value('fname', fname)
         if is_dark:
             telescope_interface.set_input_value('dark', 'dark')
+        if is_hdr:
+            telescope_interface.set_input_value('hdr', 'hdr')
         self.telescope.get_image(telescope_interface)
         return telescope_interface.get_output_value('error')
-        # except Exception as e:
-        #    raise ValueError('Failed to take an image.')
 
     def get_image(self, command, user):
         try:
@@ -597,7 +618,7 @@ class IxchelCommand:
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
             fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-                self.target_name, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
@@ -1238,6 +1259,20 @@ class IxchelCommand:
                     'regex': r'^\\ccd\s(cool|warm)\s([\.\+\-0-9]*)$',
                     'function': self.set_ccd,
                     'description': '`\\ccd <cool|warm> <T (°C)>` cools/warms CCD to specified temperature, T.',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\hdr$',
+                    'function': self.get_hdr,
+                    'description': '`\\hdr` shows the status of the CCD HDR (High Dynamic Range) mode',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\hdr\s(on|off)$',
+                    'function': self.set_hdr,
+                    'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode.',
                     'hide': False
                 },
 

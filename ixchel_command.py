@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import pathlib2
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
@@ -599,32 +600,38 @@ class IxchelCommand:
                 'Failed to send the fits file (%s) to Slack.' % fits_file)
 
     def _slack_send_fits_file_hdr(self, fits_file, comment):
-        # try:
-        hdrs = ['high', 'low']
-        for hdr in hdrs:
-            # add high or low for hdr
-            filename = PurePosixPath(fits_file)
-            fits_file_hdr = str(filename.with_suffix('')) + \
-                '.' + hdr + str(filename.suffix)
-            telescope_interface = TelescopeInterface('convert_fits_to_jpg')
-            telescope_interface.set_input_value('fits_file', fits_file_hdr)
-            telescope_interface.set_input_value('tiff_file', self.config.get(
-                'telescope', 'convert_tiff_remote_file_path'))
-            telescope_interface.set_input_value('jpg_file', self.config.get(
-                'telescope', 'convert_jpg_remote_file_path'))
-            self.telescope.convert_fits_to_jpg(telescope_interface)
-            success = self.telescope.get_file(self.config.get(
-                'telescope', 'convert_jpg_remote_file_path'), self.config.get('telescope', 'convert_jpg_local_file_path'))
-            if success:
-                self.logger.debug('Convert the fits file to an image!')
-                self.slack.send_file(self.config.get(
-                    'telescope', 'convert_jpg_local_file_path'), comment + ' (' + hdr + ')')
-            else:
-                self.logger.error(
-                    'Failed to get telescope image from remote server.')
-        # except Exception as e:
-        #     raise ValueError(
-        #         'Failed to send the fits file (%s) to Slack.' % fits_file)
+        try:
+            hdrs = ['high', 'low']
+            for hdr in hdrs:
+                # add high or low for hdr
+                filename = PurePosixPath(fits_file)
+                fits_file_hdr = str(filename.with_suffix('')) + \
+                    '.' + hdr + str(filename.suffix)
+                # updated fits file name
+                fits_file_new = str(filename.parent) + '/' + \
+                    hdr + '-' + str(filename.name)
+                telescope_interface = TelescopeInterface(
+                    'convert_fits_to_jpg_hdr')
+                telescope_interface.set_input_value(
+                    'fits_file_hdr', fits_file_hdr)
+                telescope_interface.set_input_value('fits_file', fits_file_new)
+                telescope_interface.set_input_value('tiff_file', self.config.get(
+                    'telescope', 'convert_tiff_remote_file_path'))
+                telescope_interface.set_input_value('jpg_file', self.config.get(
+                    'telescope', 'convert_jpg_remote_file_path'))
+                self.telescope.convert_fits_to_jpg(telescope_interface)
+                success = self.telescope.get_file(self.config.get(
+                    'telescope', 'convert_jpg_remote_file_path'), self.config.get('telescope', 'convert_jpg_local_file_path'))
+                if success:
+                    self.logger.debug('Convert the fits file to an image!')
+                    self.slack.send_file(self.config.get(
+                        'telescope', 'convert_jpg_local_file_path'), str(PurePosixPath(fits_file_new).name))
+                else:
+                    self.logger.error(
+                        'Failed to get telescope image from remote server.')
+        except Exception as e:
+            raise ValueError(
+                'Failed to send the fits file (%s) to Slack.' % fits_file)
 
     def slack_send_fits_file(self, fits_file, comment):
         if(self.hdr):

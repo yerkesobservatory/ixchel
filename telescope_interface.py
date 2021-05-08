@@ -291,6 +291,30 @@ telescope_interfaces = {
     #         }
     #     }
     # },
+    'convert_fits_to_jpg_hdr': {
+        'command': 'rm -f {jpg_file}; rm -f {tiff_file}; mv {fits_file_hdr} {fits_file}; stiffy {fits_file} {tiff_file}; convert -resize 50% -normalize -quality 75 {tiff_file} {jpg_file};  [ -e "{jpg_file}" ] && echo 1 || echo 0',
+        'inputs': {
+            'fits_file': {
+                'value': None
+            },
+            'fits_file_hdr': {
+                'value': None
+            },
+            'tiff_file': {
+                'value': None
+            },
+            'jpg_file': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'success': {
+                'regex': r'^[01]$',
+                'value': None,
+                'type': int
+            },
+        }
+    },
     'convert_fits_to_jpg': {
         'command': 'rm -f {jpg_file}; rm -f {tiff_file}; stiffy {fits_file} {tiff_file}; convert -resize 50% -normalize -quality 75 {tiff_file} {jpg_file};  [ -e "{jpg_file}" ] && echo 1 || echo 0',
         'inputs': {

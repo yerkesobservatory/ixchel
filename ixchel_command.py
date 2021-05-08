@@ -883,13 +883,12 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
-# 'command': 'rsync -av --include="{year}" --include="{year}/{date}" --include="{year}/{date}/***" --exclude="*" {itzamna_image_dir}/ {stars_user}@{stars_url}:{stars_remote_dir}',
     def to_stars(self, command, user):
         # get sky image from SEO camera
         try:
             telescope_interface = TelescopeInterface('to_stars')
             # assign input
-            telescope_interface.set_input_value('itzamna_image_dir', self.config.get(
+            telescope_interface.set_input_value('image_dir', self.config.get(
                 'telescope', 'itzamna_image_dir'))
             telescope_interface.set_input_value('stars_remote_dir', self.config.get(
                 'stars_server', 'stars_remote_dir'))
@@ -904,6 +903,9 @@ class IxchelCommand:
             telescope_interface.set_input_value(
                 'date', datetime.datetime.utcnow().strftime('%Y-%m-%d'))
             # create a command that applies the specified values
+            self.telescope.to_stars(telescope_interface)
+            telescope_interface.set_input_value('image_dir', self.config.get(
+                'telescope', 'image_dir'))
             self.telescope.to_stars(telescope_interface)
             # add error handling here?
             self.slack.send_message(

@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger('ixchel')
 
 # config
-cfg_file_path = 'ixchel.cfg'
+cfg_file_path = './cfg/ixchel.cfg'
 
 
 class Ixchel:

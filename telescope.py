@@ -300,6 +300,12 @@ class Telescope:
     def unlock(self, interface):
         self.setter(interface)
 
+    def open_observatory(self, interface):
+        self.setter(interface)
+
+    def close_observatory(self, interface):
+        self.setter(interface)
+
     def clear_lock(self, interface):
         self.setter(interface)
 

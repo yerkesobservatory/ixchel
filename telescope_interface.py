@@ -495,6 +495,32 @@ telescope_interfaces = {
             }
         }
     },
+    'open_observatory': {
+        'command': 'openup_nolock nocloud; keepopen maxtime=36000 slit',
+        'inputs': {
+        },
+        'outputs': {
+            'failure': {
+                'regex': r'ERROR',
+                'value': None,
+                'optional': True,
+                'type': str
+            }
+        }
+    },
+    'close_observatory': {
+        'command': 'closedown_nolock; tx slit close; tx lock clear',
+        'inputs': {
+        },
+        'outputs': {
+            'failure': {
+                'regex': r'ERROR',
+                'value': None,
+                'optional': True,
+                'type': str
+            }
+        }
+    },
     'clear_lock': {
         'command': 'tx lock clear',
         'inputs': {

@@ -775,6 +775,46 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def open_observatory(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message(
+                'Please lock the telescope before calling this command.')
+            return
+        try:
+            telescope_interface = TelescopeInterface('open_observatory')
+            # assign values
+            # query telescope
+            self.telescope.open_observatory(telescope_interface)
+            # assign output values
+            failure = telescope_interface.get_output_value('failure')
+            # send output to Slack
+            if(failure):
+                self.slack.send_message('Telescope could not be opened.')
+            else:
+                self.slack.send_message('Telescope is cracked.')
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def close_observatory(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message(
+                'Please lock the telescope before calling this command.')
+            return
+        try:
+            telescope_interface = TelescopeInterface('close_observatory')
+            # assign values
+            # query telescope
+            self.telescope.close_observatory(telescope_interface)
+            # assign output values
+            failure = telescope_interface.get_output_value('failure')
+            # send output to Slack
+            if(failure):
+                self.slack.send_message('Telescope could not be closed.')
+            else:
+                self.slack.send_message('Telescope is squeezed.')
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def clear_lock(self, command, user):
         try:
             telescope_interface = TelescopeInterface('clear_lock')
@@ -920,30 +960,6 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(
                 0), 'Failed to upload images to http://stars.uchicago.edu. Exception (%s).' % (e))
-
-    # def to_stars(self, command, user):
-    #     # get sky image from SEO camera
-    #     try:
-    #         telescope_interface = TelescopeInterface('to_stars')
-    #         # assign input
-    #         telescope_interface.set_input_value('image_dir', self.config.get(
-    #             'telescope', 'image_dir'))
-    #         telescope_interface.set_input_value('stars_remote_dir', self.config.get(
-    #             'stars_server', 'stars_remote_dir'))
-    #         telescope_interface.set_input_value('stars_key_path', self.config.get(
-    #             'stars_server', 'stars_key_path'))
-    #         telescope_interface.set_input_value('stars_user', self.config.get(
-    #             'stars_server', 'stars_user'))
-    #         telescope_interface.set_input_value('stars_url', self.config.get(
-    #             'stars_server', 'stars_url'))
-    #         # create a command that applies the specified values
-    #         self.telescope.to_stars(telescope_interface)
-    #         # add error handling here?
-    #         self.slack.send_message(
-    #             "Files successfully uploaded to http://stars.uchicago.edu!")
-    #     except Exception as e:
-    #         self.handle_error(command.group(
-    #             0), 'Failed to upload files to http://stars.uchicago.edu. Exception (%s).' % (e))
 
     def get_weather(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
@@ -1208,19 +1224,19 @@ class IxchelCommand:
                     'hide': False
                 },
 
-                # {
-                #     'regex': r'^\\crack$',
-                #     'function': self.open_observatory,
-                #     'description': '`\\crack opens the observatory',
-                #     'hide': False
-                # },
+                {
+                    'regex': r'^\\crack$',
+                    'function': self.open_observatory,
+                    'description': '`\\crack` opens the observatory',
+                    'hide': False
+                },
 
-                # {
-                #     'regex': r'^\\squeeze$',
-                #     'function': self.close_observatory,
-                #     'description': '`\\squeeze closes the observatory',
-                #     'hide': False
-                # },
+                {
+                    'regex': r'^\\squeeze$',
+                    'function': self.close_observatory,
+                    'description': '`\\squeeze` closes the observatory',
+                    'hide': False
+                },
 
                 {
                     'regex': r'^\\forecast$',

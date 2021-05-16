@@ -577,7 +577,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def _slack_send_fits_file(self, fits_file, comment):
+    def slack_send_fits_file(self, fits_file, comment):
         try:
             telescope_interface = TelescopeInterface('convert_fits_to_jpg')
             telescope_interface.set_input_value('fits_file', fits_file)
@@ -599,64 +599,65 @@ class IxchelCommand:
             raise ValueError(
                 'Failed to send the fits file (%s) to Slack.' % fits_file)
 
-    def _slack_send_fits_file_hdr(self, fits_file, comment):
-        # try:
-        hdrs = ['high', 'low']
-        for hdr in hdrs:
-            # add high or low for hdr
-            filename = PurePosixPath(fits_file)
-            suffixes = ''.join(filename.suffixes)
-            self.logger.info(suffixes)
-            # fits_file_hdr = str(filename.with_suffix('')) + \
-            #     '.' + hdr + str(filename.suffix)
-            fits_file_hdr = fits_file[0:-len(suffixes)] + \
-                '.' + hdr + str(suffixes)
-            # updated fits file name
-            fits_file_new = str(filename.parent) + '/' + \
-                hdr + '-' + str(filename.name)
-            telescope_interface = TelescopeInterface(
-                'convert_fits_to_jpg_hdr')
-            telescope_interface.set_input_value(
-                'fits_file_hdr', fits_file_hdr)
-            telescope_interface.set_input_value('fits_file', fits_file_new)
-            telescope_interface.set_input_value('tiff_file', self.config.get(
-                'telescope', 'convert_tiff_remote_file_path'))
-            telescope_interface.set_input_value('jpg_file', self.config.get(
-                'telescope', 'convert_jpg_remote_file_path'))
-            self.telescope.convert_fits_to_jpg(telescope_interface)
-            success = self.telescope.get_file(self.config.get(
-                'telescope', 'convert_jpg_remote_file_path'), self.config.get('telescope', 'convert_jpg_local_file_path'))
-            if success:
-                self.logger.debug('Convert the fits file to an image!')
-                self.slack.send_file(self.config.get(
-                    'telescope', 'convert_jpg_local_file_path'), str(PurePosixPath(fits_file_new).name))
-            else:
-                self.logger.error(
-                    'Failed to get telescope image from remote server.')
-        # except Exception as e:
-        #     raise ValueError(
-        #         'Failed to send the fits file (%s) to Slack.' % fits_file)
+    # def _slack_send_fits_file_hdr(self, fits_file, comment):
+    #     # try:
+    #     hdrs = ['high', 'low']
+    #     for hdr in hdrs:
+    #         # add high or low for hdr
+    #         filename = PurePosixPath(fits_file)
+    #         suffixes = ''.join(filename.suffixes)
+    #         self.logger.info(suffixes)
+    #         # fits_file_hdr = str(filename.with_suffix('')) + \
+    #         #     '.' + hdr + str(filename.suffix)
+    #         fits_file_hdr = fits_file[0:-len(suffixes)] + \
+    #             '.' + hdr + str(suffixes)
+    #         # updated fits file name
+    #         fits_file_new = str(filename.parent) + '/' + \
+    #             hdr + '-' + str(filename.name)
+    #         telescope_interface = TelescopeInterface(
+    #             'convert_fits_to_jpg_hdr')
+    #         telescope_interface.set_input_value(
+    #             'fits_file_hdr', fits_file_hdr)
+    #         telescope_interface.set_input_value('fits_file', fits_file_new)
+    #         telescope_interface.set_input_value('tiff_file', self.config.get(
+    #             'telescope', 'convert_tiff_remote_file_path'))
+    #         telescope_interface.set_input_value('jpg_file', self.config.get(
+    #             'telescope', 'convert_jpg_remote_file_path'))
+    #         self.telescope.convert_fits_to_jpg(telescope_interface)
+    #         success = self.telescope.get_file(self.config.get(
+    #             'telescope', 'convert_jpg_remote_file_path'), self.config.get('telescope', 'convert_jpg_local_file_path'))
+    #         if success:
+    #             self.logger.debug('Convert the fits file to an image!')
+    #             self.slack.send_file(self.config.get(
+    #                 'telescope', 'convert_jpg_local_file_path'), str(PurePosixPath(fits_file_new).name))
+    #         else:
+    #             self.logger.error(
+    #                 'Failed to get telescope image from remote server.')
+    #     # except Exception as e:
+    #     #     raise ValueError(
+    #     #         'Failed to send the fits file (%s) to Slack.' % fits_file)
 
-    def slack_send_fits_file(self, fits_file, comment):
-        if(self.hdr):
-            self._slack_send_fits_file_hdr(fits_file, comment)
-        else:
-            self._slack_send_fits_file(fits_file, comment)
+    # def slack_send_fits_file(self, fits_file, comment):
+    #     if(self.hdr):
+    #         self._slack_send_fits_file_hdr(fits_file, comment)
+    #     else:
+    #         self._slack_send_fits_file(fits_file, comment)
 
-    def _get_image(self, exposure, bin, filter, path, fname, dark=False):
-        # try:
+    def _get_image(self, exposure, bin, filter, path, fname, dark=False, low_fname=''):
         # set filter
         self._set_filter(filter)
         # take image
-        telescope_interface = TelescopeInterface('get_image')
+        if self.hdr:
+            telescope_interface = TelescopeInterface('get_image_hdr')
+            telescope_interface.set_input_value('low_fname', low_fname)
+        else:
+            telescope_interface = TelescopeInterface('get_image')
         telescope_interface.set_input_value('exposure', exposure)
         telescope_interface.set_input_value('bin', bin)
         telescope_interface.set_input_value('path', path)
         telescope_interface.set_input_value('fname', fname)
         if dark:
             telescope_interface.set_input_value('dark', 'dark')
-        if self.hdr:
-            telescope_interface.set_input_value('hdr', 'hdr')
         self.telescope.get_image(telescope_interface)
         return telescope_interface.get_output_value('error')
 
@@ -667,17 +668,22 @@ class IxchelCommand:
             bin = int(command.group(2))
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
+            fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
+                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            # only gets used if self.hdr == True
+            low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
                 self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
             error = self._get_image(
-                exposure, bin, filter, path, fname)
+                exposure, bin, filter, path, fname, False, low_fname)
             if error == '':
                 self.slack.send_message(
                     'Image command completed successfully.')
                 self.slack_send_fits_file(path + fname, fname)
+                if self.hdr:
+                    self.slack_send_fits_file(path + low_fname, low_fname)
             else:
                 self.handle_error(command.group(0), 'Error (%s).' % error)
         except Exception as e:
@@ -690,17 +696,22 @@ class IxchelCommand:
             bin = int(command.group(2))
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
+            fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
                 'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            # only gets used if self.hdr == True
+            low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
+                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
             error = self._get_image(
-                exposure, bin, filter, path, fname, True)
+                exposure, bin, filter, path, fname, True, low_fname)
             if error == '':
                 self.slack.send_message(
                     'Image command completed successfully.')
                 self.slack_send_fits_file(path + fname, fname)
+                if self.hdr:
+                    self.slack_send_fits_file(path + low_fname, low_fname)
             else:
                 self.handle_error(command.group(0), 'Error (%s).' % error)
         except Exception as e:
@@ -713,17 +724,21 @@ class IxchelCommand:
             bin = int(command.group(1))
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
+            fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
                 'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
+                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
             error = self._get_image(
-                exposure, bin, filter, path, fname, True)
+                exposure, bin, filter, path, fname, True, low_fname)
             if error == '':
                 self.slack.send_message(
                     'Image command completed successfully.')
                 self.slack_send_fits_file(path + fname, fname)
+                if self.hdr:
+                    self.slack_send_fits_file(path + low_fname, low_fname)
             else:
                 self.handle_error(command.group(0), 'Error (%s).' % error)
         except Exception as e:

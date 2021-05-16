@@ -45,8 +45,39 @@ telescope_interfaces = {
             },
         }
     },
+    'get_image_hdr': {
+        'command': 'mkdir -p {path}; image {dark} time={exposure} bin={bin} outfile={path}{fname} lowfile={path}{low_fname}',
+        'inputs': {
+            'exposure': {
+                'value': None
+            },
+            'bin': {
+                'value': None
+            },
+            'path': {
+                'value': None
+            },
+            'fname': {
+                'value': None
+            },
+            'low_fname': {
+                'value': None
+            },
+            'dark': {
+                'value': None,
+                'default': ''
+            }
+        },
+        'outputs': {
+            'error': {
+                'regex': r'^.*$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'get_image': {
-        'command': 'mkdir -p {path}; image {dark} {hdr} time={exposure} bin={bin} outfile={path}{fname}',
+        'command': 'mkdir -p {path}; image {dark} time={exposure} bin={bin} outfile={path}{fname}',
         'inputs': {
             'exposure': {
                 'value': None
@@ -61,10 +92,6 @@ telescope_interfaces = {
                 'value': None
             },
             'dark': {
-                'value': None,
-                'default': ''
-            },
-            'hdr': {
                 'value': None,
                 'default': ''
             }

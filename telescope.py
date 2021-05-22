@@ -2,7 +2,6 @@ import logging
 import paramiko
 import subprocess
 import re
-from telescope_interface import TelescopeInterface
 from astropy.coordinates import EarthLocation
 import astropy.units as u
 
@@ -152,6 +151,7 @@ class Telescope:
         self.latitude = self.config.get('telescope', 'latitude')
         self.longitude = self.config.get('telescope', 'longitude')
         self.elevation = self.config.get('telescope', 'elevation')
+        self.image_dir = self.config.get('telescope', 'image_dir')
         self.earthLocation = EarthLocation(lat=float(
             self.latitude)*u.deg, lon=float(self.longitude)*u.deg, height=float(self.elevation)*u.m)
         if self.use_ssh:

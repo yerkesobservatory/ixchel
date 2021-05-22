@@ -180,6 +180,255 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def pinpoint_ra_dec(self, command, user):
+        # if not self.is_locked_by(user):
+        #     self.slack.send_message(
+        #         'Please lock the telescope before calling this command.')
+        #     return
+        try:
+            ra = command.group(1).strip()
+            dec = command.group(2).strip()
+            self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
+                                    (self.config.get('slack', 'username'), ra, dec))
+            # # turn on telescope tracking
+            # telescope_interface = TelescopeInterface('track')
+            # telescope_interface.set_input_value('on_off', 'on')
+            # self.telescope.track(telescope_interface)
+            # # point the telescope
+            # telescope_interface = TelescopeInterface('point')
+            # # assign values
+            # telescope_interface.set_input_value('ra', ra)
+            # telescope_interface.set_input_value('dec', dec)
+            # # create a command that applies the specified values
+            # self.telescope.point(telescope_interface)
+            # send output to Slack
+            self.slack.send_message(
+                'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def _pinpoint(self, command, user, ra, dec):
+        # astrometry parameters
+        downsample = self.config.get('pinpoint', 'downsample', 2)
+        scale_low = self.config.get('pinpoint', 'scale_low', 0.55)
+        scale_high = self.config.get('pinpoint', 'scale_high', 2.00)
+        radius = self.config.get('pinpoint', 'radius', 50.0)
+        cpu_limit = self.config.get('pinpoint', 'cpu_limit', 30)
+        max_ra_offset = self.config.get('pinpoint', 'max_ra_offset', 50.0)
+        max_dec_offset = self.config.get('pinpoint', 'max_dec_offset', 50.0)
+        min_ra_offset = self.config.get('pinpoint', 'min_ra_offset', 0.05)
+        min_dec_offset = self.config.get('pinpoint', 'min_dec_offset', 0.05)
+        max_tries = self.config.get('pinpoint', 'max_tries', 10)
+        time = self.config.get('pinpoint', 'time', 10)
+        bin = self.config.get('pinpoint', 'bin', 2)
+        filter = self.config.get('pinpoint', 'filter')
+
+        # name and path for pinpoint images
+        fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
+            'pinpoint', filter, time, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), user.lower(), 0)
+        path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+            '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+            user + '/'
+
+        ra_target = Angle(ra.replace(' ', ':'), unit=u.hour).degree
+        dec_target = Angle(dec.replace(' ', ':'), unit=u.deg).degree
+
+        # turn tracking on - this is redundant, but sometimes helpful
+        telescope_interface = TelescopeInterface('track')
+        telescope_interface.set_input_value('on_off', 'on')
+        self.track(telescope_interface)
+
+        # center dome - this is redundant, but sometimes helpful
+        telescope_interface = TelescopeInterface('center_dome')
+        self.center_dome(telescope_interface)
+
+        # point the telescope
+        self.logger.info('Pointing to RA=%s, DEC=%s.' %
+                         (ra.replace(' ', ':'),  dec.replace(' ', ':')))
+        telescope_interface = TelescopeInterface('point')
+        telescope_interface.set_input_value('ra', ra)
+        telescope_interface.set_input_value('dec', dec)
+        self.point(telescope_interface)
+
+        # get current filter setting
+        telescope_interface = TelescopeInterface('get_filter')
+        self.get_filter(telescope_interface)
+        # assign values
+        num = telescope_interface.get_output_value('num')
+        filters = self.config.get('telescope', 'filters').split('\n')
+        original_filter = filters[num-1]
+        # change filter to 'filter_for_pinpoint' if not already set
+        if(original_filter != filter):
+            telescope_interface = TelescopeInterface('set_filter')
+            num = filters.index(self.config.get(
+                'telescope', 'filter_for_pinpoint')) + 1
+            # assign values
+            telescope_interface.set_input_value('num', num)
+            self.set_filter(telescope_interface)
+            num = telescope_interface.get_output_value('num')
+            self.logger.debug('Filter changed from %s to %s.' %
+                              (original_filter, filters[num-1]))
+
+        # change filter back to original_filter
+        if(original_filter != filter):
+            telescope_interface = TelescopeInterface('set_filter')
+            num = filters.index(original_filter) + 1
+            # assign values
+            telescope_interface.set_input_value('num', num)
+            self.set_filter(telescope_interface)
+            num = telescope_interface.get_output_value('num')
+            self.logger.debug('Filter changed from %s to %s.' % (
+                self.config.get('telescope', 'filter_for_pinpoint'), filters[num-1]))
+
+        # turn off HDR mode
+        hdr = self.hdr
+        self.hdr = False
+
+        # start pinpoint iterations
+        iteration = 0
+        while(iteration < max_tries):
+
+            error = self._get_image(time, bin, filter, path, fname)
+            if error == '':
+                self.slack.send_message(
+                    'Pinpoint image command completed successfully.')
+                self.slack_send_fits_file(path + fname, fname)
+            else:
+                self.handle_error(command.group(0), 'Error (%s).' % error)
+
+            iteration += 1
+
+        # ra_offset = 5.0
+        # dec_offset = 5.0
+        # iteration = 0
+        # while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and iteration < max_tries):
+        #     iteration += 1
+
+        #     logger.debug('Performing adjustment #%d (dRA=%f, dDEC=%f)...' % (
+        #         iteration, ra_offset, dec_offset))
+
+        #     # get pointing image
+        #     (output, error, pid) = self.runSubprocess(
+        #         ['image', 'time=%f' % time, 'bin=%d' % bin, 'outfile=%s' % fits_fname])
+
+        #     if not os.path.isfile(fits_fname):
+        #         logger.error('File (%s) not found.' % fits_fname)
+        #         return False
+
+        #     self.slackdebug('Got intermediate pinpoint image.')
+        #     self.slackpreview(fits_fname)
+
+        #     # get FITS header, pull RA and DEC for cueing the plate solving
+        #     if(ra_target == None or dec_target == None):
+        #         header = getheader(fits_fname)
+        #         try:
+        #              ra_target = header['RA']
+        #             # create an Angle object
+        #             ra_target = coord.Angle(ra_target, unit=u.hour).degree
+        #             dec_target = header['DEC']
+        #             dec_target = coord.Angle(dec_target, unit=u.deg).degree
+        #         except KeyError:
+        #             logger.error(
+        #                 "RA/DEC not found in input FITS header (%s)." % fits_fname)
+        #             return False
+
+        #     # plate solve this image, using RA/DEC from FITS header
+        #     (output, error, pid) = self.runSubprocess([solve_field_path, '--no-verify', '--overwrite', '--no-remove-lines', '--downsample', '%d' % downsample, '--scale-units', 'arcsecperpix', '--no-plots',
+        #                                                '--scale-low',  '%f' % scale_low, '--scale-high',  '%f' % scale_high, '--ra',  '%s' % ra_target, '--dec', '%s' % dec_target, '--radius',  '%f' % radius, '--cpulimit', '%d' % cpu_limit, fits_fname])
+        #     dumper.debug(output)
+
+        #     # remove astrometry.net temporary files
+        #     try:
+        #         os.remove(fitsfolder+'pointing-indx.xyls')
+        #         os.remove(fitsfolder+'pointing.axy')
+        #         os.remove(fitsfolder+'pointing.corr')
+        #         os.remove(fitsfolder+'pointing.match')
+        #         os.remove(fitsfolder+'pointing.rdls')
+        #         os.remove(fitsfolder+'pointing.solved')
+        #         os.remove(fitsfolder+'pointing.wcs')
+        #         os.remove(fitsfolder+'pointing.new')
+        #     except:
+        #         pass
+
+        #     # look for field center in solve-field output
+        #     match = re.search(
+        #         'Field center\: \(RA,Dec\) \= \(([0-9\-\.\s]+)\,([0-9\-\.\s]+)\) deg\.', output)
+        #     if match:
+        #         RA_image = match.group(1).strip()
+        #         DEC_image = match.group(2).strip()
+        #     else:
+        #         logger.error(
+        #             "Field center RA/DEC not found in solve-field output!")
+        #         return False
+
+        #     ra_offset = float(ra_target)-float(RA_image)
+        #     if ra_offset > 350:
+        #         ra_offset -= 360.0
+        #      dec_offset = float(dec_target)-float(DEC_image)
+
+        #     if(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <= max_dec_offset):
+        #         (output, error, pid) = self.runSubprocess(
+        #             ['tx', 'offset', 'ra=%f' % ra_offset, 'dec=%f' % dec_offset])
+        #         logger.debug("...complete (dRA=%f deg, dDEC=%f deg)." %
+        #                      (ra_offset, dec_offset))
+        #         self.slackdebug("Telescope offset complete (dRA=%f deg, dDEC=%f deg)." % (
+        #             ra_offset, dec_offset))
+        #     else:
+        #         logger.error("Calculated offsets too large (tx offset ra=%f dec=%f)! Pinpoint aborted." % (
+        #             ra_offset, dec_offset))
+        #         return False
+
+        #     # turn tracking on (just in case)
+        #     (output, error, pid) = self.runSubprocess(
+        #         ['tx', 'track', 'on'], self.simulate)
+
+        # if(iteration < max_tries):
+        #     logger.info('BAM! Your target has been pinpoint-ed!')
+        #     self.slackdebug('Your target has been pinpoint-ed!')
+        #     return True
+
+        # logger.error(
+        #     'Exceeded maximum number of adjustments (%d).' % max_tries)
+        # self.slackalert(
+        #     'Exceeded maximum number of adjustments (%d).' % max_tries)
+        # return False
+
+        self.hdr = hdr  # restore HDR setting
+
+    def pinpoint(self, command, user):
+        # if not self.is_locked_by(user):
+        #    self.slack.send_message(
+        #        'Please lock the telescope before calling this command.')
+        #    return
+        try:
+            # get object id; assume 1 if none
+            if command.group(1):
+                id = int(command.group(1).strip())
+            else:
+                id = 1
+            # ensure object id is valid
+            if id < 1 or id > len(self.skyObjects):
+                self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
+                    self.config.get('slack', 'username'), id))
+                return
+            # find corresponding object
+            skyObject = self.skyObjects[id-1]
+            self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
+                self.config.get('slack', 'username'), skyObject.name))
+            # pinpoint the telescope
+            telescope_interface = TelescopeInterface('pinpoint')
+            # assign values
+            telescope_interface.set_input_value('ra', skyObject.ra)
+            telescope_interface.set_input_value('dec', skyObject.dec)
+            telescope_interface.set_input_value(
+                'user', self.slack.get_user_by_id(user['id']).get('name', user['id']))
+            self.telescope.pinpoint(telescope_interface)
+            # send output to Slack
+            self.slack.send_message(
+                'Telescope successfully pinpointed to %s.' % skyObject.name)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def plot_ra_dec(self, command, user):
         ra = command.group(1)
         dec = command.group(2)
@@ -664,12 +913,16 @@ class IxchelCommand:
     def get_image(self, command, user):
         try:
             filter = command.group(3)
-            exposure = int(command.group(1))
+            exposure = float(command.group(1))
             bin = int(command.group(2))
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
-                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            if self.hdr:
+                fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
+                    self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            else:
+                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
+                    self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             # only gets used if self.hdr == True
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
                 self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
@@ -696,8 +949,12 @@ class IxchelCommand:
             bin = int(command.group(2))
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
-                'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            if self.hdr:
+                fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
+                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            else:
+                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
+                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             # only gets used if self.hdr == True
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
                 self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
@@ -724,8 +981,12 @@ class IxchelCommand:
             bin = int(command.group(1))
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
-                'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            if self.hdr:
+                fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
+                    'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+            else:
+                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
+                    'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
                 self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
@@ -1209,7 +1470,22 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\image\s([0-9]+)\s(1|2)\s(%s)$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'regex': r'^\\pinpoint(\s[0-9]+)?$',
+                    'function': self.pinpoint,
+                    'description': '`\\pinpoint <object #> or \\pinpoint <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` uses astrometry to point the telescope to an object (run `\\find` first!) or coordinate',
+                    'hide': False
+                },
+
+                {
+                    # ra dec regex should be better
+                    'regex': r'^\\pinpoint(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)$',
+                    'function': self.pinpoint_ra_dec,
+                    'description': '`\\pinpoint <RA> <DEC>` uses astrometry to point the telescope to a coordinate',
+                    'hide': True
+                },
+
+                {
+                    'regex': r'^\\image\s([0-9\.]+)\s(1|2)\s(%s)$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_image,
                     'description': '`\\image <exposure> <binning> <filter>` takes an image',
                     'hide': False
@@ -1344,7 +1620,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\ccd\s(cool|warm)\s([\.\+\-0-9]*)$',
                     'function': self.set_ccd,
-                    'description': '`\\ccd <cool|warm> <T (°C)>` cools/warms CCD to specified temperature, T.',
+                    'description': '`\\ccd <cool|warm> <T (°C)>` cools/warms CCD to specified temperature, T',
                     'hide': False
                 },
 
@@ -1358,7 +1634,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\hdr\s(on|off)$',
                     'function': self.set_hdr,
-                    'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode.',
+                    'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode',
                     'hide': False
                 },
 

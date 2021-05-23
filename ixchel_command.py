@@ -207,21 +207,24 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def _pinpoint(self, command, user, ra, dec):
+    def _pinpoint(self, command, _user, ra, dec):
         # astrometry parameters
+        solve_field_path = self.config.get(
+            'pinpoint', 'solve_field_path', '/home/chultun/astrometry/bin/solve-field')
         downsample = self.config.get('pinpoint', 'downsample', 2)
         scale_low = self.config.get('pinpoint', 'scale_low', 0.55)
         scale_high = self.config.get('pinpoint', 'scale_high', 2.00)
         radius = self.config.get('pinpoint', 'radius', 50.0)
-        cpu_limit = self.config.get('pinpoint', 'cpu_limit', 30)
+        cpulimit = self.config.get('pinpoint', 'cpu_limit', 30)
         max_ra_offset = self.config.get('pinpoint', 'max_ra_offset', 50.0)
         max_dec_offset = self.config.get('pinpoint', 'max_dec_offset', 50.0)
         min_ra_offset = self.config.get('pinpoint', 'min_ra_offset', 0.05)
         min_dec_offset = self.config.get('pinpoint', 'min_dec_offset', 0.05)
-        max_tries = self.config.get('pinpoint', 'max_tries', 10)
+        max_tries = int(self.config.get('pinpoint', 'max_tries', 5))
         time = self.config.get('pinpoint', 'time', 10)
         bin = self.config.get('pinpoint', 'bin', 2)
         filter = self.config.get('pinpoint', 'filter')
+        user = self.slack.get_user_by_id(_user['id']).get('name', _user['id'])
 
         # name and path for pinpoint images
         fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
@@ -236,11 +239,11 @@ class IxchelCommand:
         # turn tracking on - this is redundant, but sometimes helpful
         telescope_interface = TelescopeInterface('track')
         telescope_interface.set_input_value('on_off', 'on')
-        self.track(telescope_interface)
+        self.telescope.track(telescope_interface)
 
         # center dome - this is redundant, but sometimes helpful
         telescope_interface = TelescopeInterface('center_dome')
-        self.center_dome(telescope_interface)
+        self.telescope.center_dome(telescope_interface)
 
         # point the telescope
         self.logger.info('Pointing to RA=%s, DEC=%s.' %
@@ -248,11 +251,11 @@ class IxchelCommand:
         telescope_interface = TelescopeInterface('point')
         telescope_interface.set_input_value('ra', ra)
         telescope_interface.set_input_value('dec', dec)
-        self.point(telescope_interface)
+        self.telescope.point(telescope_interface)
 
         # get current filter setting
         telescope_interface = TelescopeInterface('get_filter')
-        self.get_filter(telescope_interface)
+        self.telescope.get_filter(telescope_interface)
         # assign values
         num = telescope_interface.get_output_value('num')
         filters = self.config.get('telescope', 'filters').split('\n')
@@ -264,7 +267,7 @@ class IxchelCommand:
                 'telescope', 'filter_for_pinpoint')) + 1
             # assign values
             telescope_interface.set_input_value('num', num)
-            self.set_filter(telescope_interface)
+            self.telescope.set_filter(telescope_interface)
             num = telescope_interface.get_output_value('num')
             self.logger.debug('Filter changed from %s to %s.' %
                               (original_filter, filters[num-1]))
@@ -275,7 +278,7 @@ class IxchelCommand:
             num = filters.index(original_filter) + 1
             # assign values
             telescope_interface.set_input_value('num', num)
-            self.set_filter(telescope_interface)
+            self.telescope.set_filter(telescope_interface)
             num = telescope_interface.get_output_value('num')
             self.logger.debug('Filter changed from %s to %s.' % (
                 self.config.get('telescope', 'filter_for_pinpoint'), filters[num-1]))
@@ -289,12 +292,29 @@ class IxchelCommand:
         while(iteration < max_tries):
 
             error = self._get_image(time, bin, filter, path, fname)
-            if error == '':
+            if error:
                 self.slack.send_message(
-                    'Pinpoint image command completed successfully.')
+                    'Obtained intermediate image (#%d) for pinpoint astrometry.' % iteration)
                 self.slack_send_fits_file(path + fname, fname)
             else:
                 self.handle_error(command.group(0), 'Error (%s).' % error)
+
+            telescope_interface = TelescopeInterface('pinpoint')
+            # assign values
+            telescope_interface.set_input_value(
+                'solve_field_path', solve_field_path)
+            telescope_interface.set_input_value('downsample', downsample)
+            telescope_interface.set_input_value('scale_low', scale_low)
+            telescope_interface.set_input_value('scale_high', scale_high)
+            telescope_interface.set_input_value('ra_target', ra_target)
+            telescope_interface.set_input_value('dec_target', dec_target)
+            telescope_interface.set_input_value('radius', radius)
+            telescope_interface.set_input_value('cpulimit', cpulimit)
+            telescope_interface.set_input_value('fits_file', path+fname)
+            self.telescope.pinpoint(telescope_interface)
+            ra_center = telescope_interface.get_output_value('ra_center')
+            self.logger.debug('ra_center=%s' % ra_center)
+            # ra_center
 
             iteration += 1
 
@@ -317,20 +337,6 @@ class IxchelCommand:
 
         #     self.slackdebug('Got intermediate pinpoint image.')
         #     self.slackpreview(fits_fname)
-
-        #     # get FITS header, pull RA and DEC for cueing the plate solving
-        #     if(ra_target == None or dec_target == None):
-        #         header = getheader(fits_fname)
-        #         try:
-        #              ra_target = header['RA']
-        #             # create an Angle object
-        #             ra_target = coord.Angle(ra_target, unit=u.hour).degree
-        #             dec_target = header['DEC']
-        #             dec_target = coord.Angle(dec_target, unit=u.deg).degree
-        #         except KeyError:
-        #             logger.error(
-        #                 "RA/DEC not found in input FITS header (%s)." % fits_fname)
-        #             return False
 
         #     # plate solve this image, using RA/DEC from FITS header
         #     (output, error, pid) = self.runSubprocess([solve_field_path, '--no-verify', '--overwrite', '--no-remove-lines', '--downsample', '%d' % downsample, '--scale-units', 'arcsecperpix', '--no-plots',
@@ -415,14 +421,15 @@ class IxchelCommand:
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
                 self.config.get('slack', 'username'), skyObject.name))
+            self._pinpoint(command, user, skyObject.ra, skyObject.dec)
             # pinpoint the telescope
-            telescope_interface = TelescopeInterface('pinpoint')
-            # assign values
-            telescope_interface.set_input_value('ra', skyObject.ra)
-            telescope_interface.set_input_value('dec', skyObject.dec)
-            telescope_interface.set_input_value(
-                'user', self.slack.get_user_by_id(user['id']).get('name', user['id']))
-            self.telescope.pinpoint(telescope_interface)
+            # telescope_interface = TelescopeInterface('pinpoint')
+            # # assign values
+            # telescope_interface.set_input_value('ra', skyObject.ra)
+            # telescope_interface.set_input_value('dec', skyObject.dec)
+            # telescope_interface.set_input_value(
+            #     'user', self.slack.get_user_by_id(user['id']).get('name', user['id']))
+            # self.telescope.pinpoint(telescope_interface)
             # send output to Slack
             self.slack.send_message(
                 'Telescope successfully pinpointed to %s.' % skyObject.name)
@@ -908,7 +915,7 @@ class IxchelCommand:
         if dark:
             telescope_interface.set_input_value('dark', 'dark')
         self.telescope.get_image(telescope_interface)
-        return telescope_interface.get_output_value('error')
+        return (telescope_interface.get_output_value('error') == '')
 
     def get_image(self, command, user):
         try:
@@ -931,7 +938,7 @@ class IxchelCommand:
                 slack_user + '/'
             error = self._get_image(
                 exposure, bin, filter, path, fname, False, low_fname)
-            if error == '':
+            if error:
                 self.slack.send_message(
                     'Image command completed successfully.')
                 self.slack_send_fits_file(path + fname, fname)
@@ -963,7 +970,7 @@ class IxchelCommand:
                 slack_user + '/'
             error = self._get_image(
                 exposure, bin, filter, path, fname, True, low_fname)
-            if error == '':
+            if error:
                 self.slack.send_message(
                     'Image command completed successfully.')
                 self.slack_send_fits_file(path + fname, fname)
@@ -994,7 +1001,7 @@ class IxchelCommand:
                 slack_user + '/'
             error = self._get_image(
                 exposure, bin, filter, path, fname, True, low_fname)
-            if error == '':
+            if error:
                 self.slack.send_message(
                     'Image command completed successfully.')
                 self.slack_send_fits_file(path + fname, fname)

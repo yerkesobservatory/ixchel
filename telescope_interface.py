@@ -281,43 +281,49 @@ telescope_interfaces = {
             'date': {
                 'value': None
             }
-        },
-        'outputs': {
-            'error': {
-                'regex': r'^.*$',
-                'value': None,
-                'type': str
-            }
         }
     },
-    # # scp -r -q -i $STARS_PRIVATE_KEY_PATH -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${SRC} $STARS_USERNAME@$STARS_SERVER:${DEST}/
-    # 'to_stars': {
-    #     'command': 'scp -r -q -i {stars_key_path} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {image_dir}/. {stars_user}@{stars_url}:{stars_remote_dir}',
-    #     'inputs': {
-    #         'image_dir': {
-    #             'value': None
-    #         },
-    #         'stars_remote_dir': {
-    #             'value': None
-    #         },
-    #         'stars_key_path': {
-    #             'value': None
-    #         },
-    #         'stars_user': {
-    #             'value': None
-    #         },
-    #         'stars_url': {
-    #             'value': None
-    #         }
-    #     },
-    #     'outputs': {
-    #         'error': {
-    #             'regex': r'^.*$',
-    #             'value': None,
-    #             'type': str
-    #         }
-    #     }
-    # },
+    'pinpoint': {
+        'command': '{solve_field_path} --no-verify --overwrite --no-remove-lines --downsample {downsample} --scale-units arcsecperpix --no-plots --scale-low {scale_low} --scale-high {scale_high} --ra {ra_target} --dec {dec_target} --radius {radius} --cpulimit {cpulimit} {fits_file}',
+        'is_background': False,
+        'inputs': {
+            'solve_field_path': {
+                'value': None
+            },
+            'downsample': {
+                'value': None
+            },
+            'scale_low': {
+                'value': None
+            },
+            'scale_high': {
+                'value': None
+            },
+            'ra_target': {
+                'value': None
+            },
+            'dec_target': {
+                'value': None
+            },
+            'radius': {
+                'value': None
+            },
+            'cpulimit': {
+                'value': None
+            },
+            'fits_file': {
+                'value': None
+            }
+        },
+        #Field center: (RA,Dec) = (132.077893, 26.584066) deg.
+        'outputs': {
+            'ra_center': {
+                'regex': r'Field center\:\s\(RA\,Dec\)\s=\s\(([0-9\-\.\+\-]+)\,',
+                'value': None,
+                'type': str
+            }          
+        }
+    },
     'convert_fits_to_jpg_hdr': {
         'command': 'rm -f {jpg_file}; rm -f {tiff_file}; mv {fits_file_hdr} {fits_file}; stiffy {fits_file} {tiff_file}; convert -resize 50% -normalize -quality 75 {tiff_file} {jpg_file};  [ -e "{jpg_file}" ] && echo 1 || echo 0',
         'inputs': {

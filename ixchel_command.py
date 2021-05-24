@@ -180,33 +180,6 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def pinpoint_ra_dec(self, command, user):
-        # if not self.is_locked_by(user):
-        #     self.slack.send_message(
-        #         'Please lock the telescope before calling this command.')
-        #     return
-        try:
-            ra = command.group(1).strip()
-            dec = command.group(2).strip()
-            self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
-                                    (self.config.get('slack', 'username'), ra, dec))
-            # # turn on telescope tracking
-            # telescope_interface = TelescopeInterface('track')
-            # telescope_interface.set_input_value('on_off', 'on')
-            # self.telescope.track(telescope_interface)
-            # # point the telescope
-            # telescope_interface = TelescopeInterface('point')
-            # # assign values
-            # telescope_interface.set_input_value('ra', ra)
-            # telescope_interface.set_input_value('dec', dec)
-            # # create a command that applies the specified values
-            # self.telescope.point(telescope_interface)
-            # send output to Slack
-            self.slack.send_message(
-                'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
-        except Exception as e:
-            self.handle_error(command.group(0), 'Exception (%s).' % e)
-
     def _pinpoint(self, command, _user, ra, dec):
         # astrometry parameters
         solve_field_path = self.config.get(
@@ -310,99 +283,40 @@ class IxchelCommand:
             telescope_interface.set_input_value('dec_target', dec_target)
             telescope_interface.set_input_value('radius', radius)
             telescope_interface.set_input_value('cpulimit', cpulimit)
-            telescope_interface.set_input_value(
-                'fits_file', '/tmp/20170129.130940818.017.cal.2017_01_29T13_09_41.wcs.fits')
+            telescope_interface.set_input_value('path', path)
+            telescope_interface.set_input_value('fname', fname)
             self.telescope.pinpoint(telescope_interface)
-            ra_center = telescope_interface.get_output_value('ra_center')
-            dec_center = telescope_interface.get_output_value('dec_center')
-            self.logger.debug('ra_center=%s' % ra_center)
-            self.logger.debug('dec_center=%s' % dec_center)
-            # ra_center
+            # get field center for this image, if astrometry succeeded
+            ra_image = telescope_interface.get_output_value('ra_image')
+            dec_image = telescope_interface.get_output_value('dec_image')
+
+            ra_offset = float(ra_target)-float(ra_image)
+            if ra_offset > 350:
+                ra_offset -= 360.0
+            dec_offset = float(dec_target)-float(dec_image)
+
+            if(abs(ra_offset) <= min_ra_offset and abs(dec_offset) <= min_dec_offset):
+                self.hdr = hdr
+                return True
+            elif(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <= max_dec_offset):
+                telescope_interface = TelescopeInterface('offset')
+                telescope_interface.set_input_value('ra', ra_offset)
+                telescope_interface.set_input_value('dec', dec_offset)
+                self.telescope.pinpoint(telescope_interface)
+                self.slack.send_message(
+                    "Telescope offset complete (dRA=%f deg, dDEC=%f deg). Obtaining next image..." % (ra_offset, dec_offset))
+            else:
+                self.logger.error("Calculated offsets too large (dRA=%f deg, dDEC=%f deg)! Pinpoint aborted." % (
+                    ra_offset, dec_offset))
+                self.hdr = hdr
+                return False
 
             iteration += 1
 
-        # ra_offset = 5.0
-        # dec_offset = 5.0
-        # iteration = 0
-        # while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and iteration < max_tries):
-        #     iteration += 1
-
-        #     logger.debug('Performing adjustment #%d (dRA=%f, dDEC=%f)...' % (
-        #         iteration, ra_offset, dec_offset))
-
-        #     # get pointing image
-        #     (output, error, pid) = self.runSubprocess(
-        #         ['image', 'time=%f' % time, 'bin=%d' % bin, 'outfile=%s' % fits_fname])
-
-        #     if not os.path.isfile(fits_fname):
-        #         logger.error('File (%s) not found.' % fits_fname)
-        #         return False
-
-        #     self.slackdebug('Got intermediate pinpoint image.')
-        #     self.slackpreview(fits_fname)
-
-        #     # plate solve this image, using RA/DEC from FITS header
-        #     (output, error, pid) = self.runSubprocess([solve_field_path, '--no-verify', '--overwrite', '--no-remove-lines', '--downsample', '%d' % downsample, '--scale-units', 'arcsecperpix', '--no-plots',
-        #                                                '--scale-low',  '%f' % scale_low, '--scale-high',  '%f' % scale_high, '--ra',  '%s' % ra_target, '--dec', '%s' % dec_target, '--radius',  '%f' % radius, '--cpulimit', '%d' % cpu_limit, fits_fname])
-        #     dumper.debug(output)
-
-        #     # remove astrometry.net temporary files
-        #     try:
-        #         os.remove(fitsfolder+'pointing-indx.xyls')
-        #         os.remove(fitsfolder+'pointing.axy')
-        #         os.remove(fitsfolder+'pointing.corr')
-        #         os.remove(fitsfolder+'pointing.match')
-        #         os.remove(fitsfolder+'pointing.rdls')
-        #         os.remove(fitsfolder+'pointing.solved')
-        #         os.remove(fitsfolder+'pointing.wcs')
-        #         os.remove(fitsfolder+'pointing.new')
-        #     except:
-        #         pass
-
-        #     # look for field center in solve-field output
-        #     match = re.search(
-        #         'Field center\: \(RA,Dec\) \= \(([0-9\-\.\s]+)\,([0-9\-\.\s]+)\) deg\.', output)
-        #     if match:
-        #         RA_image = match.group(1).strip()
-        #         DEC_image = match.group(2).strip()
-        #     else:
-        #         logger.error(
-        #             "Field center RA/DEC not found in solve-field output!")
-        #         return False
-
-        #     ra_offset = float(ra_target)-float(RA_image)
-        #     if ra_offset > 350:
-        #         ra_offset -= 360.0
-        #      dec_offset = float(dec_target)-float(DEC_image)
-
-        #     if(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <= max_dec_offset):
-        #         (output, error, pid) = self.runSubprocess(
-        #             ['tx', 'offset', 'ra=%f' % ra_offset, 'dec=%f' % dec_offset])
-        #         logger.debug("...complete (dRA=%f deg, dDEC=%f deg)." %
-        #                      (ra_offset, dec_offset))
-        #         self.slackdebug("Telescope offset complete (dRA=%f deg, dDEC=%f deg)." % (
-        #             ra_offset, dec_offset))
-        #     else:
-        #         logger.error("Calculated offsets too large (tx offset ra=%f dec=%f)! Pinpoint aborted." % (
-        #             ra_offset, dec_offset))
-        #         return False
-
-        #     # turn tracking on (just in case)
-        #     (output, error, pid) = self.runSubprocess(
-        #         ['tx', 'track', 'on'], self.simulate)
-
-        # if(iteration < max_tries):
-        #     logger.info('BAM! Your target has been pinpoint-ed!')
-        #     self.slackdebug('Your target has been pinpoint-ed!')
-        #     return True
-
-        # logger.error(
-        #     'Exceeded maximum number of adjustments (%d).' % max_tries)
-        # self.slackalert(
-        #     'Exceeded maximum number of adjustments (%d).' % max_tries)
-        # return False
-
+        self.logger.error(
+            'Pinpoint exceeded maximum number of iterations (%d).' % max_tries)
         self.hdr = hdr  # restore HDR setting
+        return False
 
     def pinpoint(self, command, user):
         # if not self.is_locked_by(user):
@@ -424,18 +338,35 @@ class IxchelCommand:
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
                 self.config.get('slack', 'username'), skyObject.name))
-            self._pinpoint(command, user, skyObject.ra, skyObject.dec)
-            # pinpoint the telescope
-            # telescope_interface = TelescopeInterface('pinpoint')
-            # # assign values
-            # telescope_interface.set_input_value('ra', skyObject.ra)
-            # telescope_interface.set_input_value('dec', skyObject.dec)
-            # telescope_interface.set_input_value(
-            #     'user', self.slack.get_user_by_id(user['id']).get('name', user['id']))
-            # self.telescope.pinpoint(telescope_interface)
-            # send output to Slack
-            self.slack.send_message(
-                'Telescope successfully pinpointed to %s.' % skyObject.name)
+            success = self._pinpoint(
+                command, user, skyObject.ra, skyObject.dec)
+            if success:
+                self.slack.send_message(
+                    'Telescope successfully pinpointed to %s.' % skyObject.name)
+            else:
+                self.slack.send_message(
+                    'Telescope failed to pinpoint to %s.' % skyObject.name)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def pinpoint_ra_dec(self, command, user):
+        # if not self.is_locked_by(user):
+        #     self.slack.send_message(
+        #         'Please lock the telescope before calling this command.')
+        #     return
+        try:
+            ra = command.group(1).strip()
+            dec = command.group(2).strip()
+            self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
+                                    (self.config.get('slack', 'username'), ra, dec))
+            success = self._pinpoint(
+                command, user, ra, dec)
+            if success:
+                self.slack.send_message(
+                    'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
+            else:
+                self.slack.send_message(
+                    'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 

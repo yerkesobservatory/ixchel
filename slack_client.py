@@ -5,6 +5,7 @@ import datetime
 import time
 import os
 import slack
+import slack.errors as client_err
 import asyncio
 import concurrent
 
@@ -43,7 +44,7 @@ class Slack:
         try:
             self.rtm.ping()
             return True
-        except SlackClientNotConnectedError as e:
+        except client_err.SlackClientNotConnectedError as e:
             self.logger.error(
                 'Slack RTM client is not connected. Exception (%s).' % e)
             return False
@@ -88,6 +89,7 @@ class Slack:
                 username=username,
                 attachments=attachments
             )
+            self.logger.debug('Sent Slack message: %s.' % message)
         except Exception as e:
             self.logger.error(
                 'Could not send message (%s). Exception (%s).' % (message, e))

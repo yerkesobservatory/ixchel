@@ -320,3 +320,6 @@ class Telescope:
 
     def pinpoint(self, interface):
         self.setter(interface)
+
+    def offset(self, interface):
+        self.setter(interface)

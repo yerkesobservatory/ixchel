@@ -283,8 +283,28 @@ telescope_interfaces = {
             }
         }
     },
+    'offset': {
+        'command': 'tx offset dec={dec} ra={ra} cos',
+        'is_background': False,
+        'inputs': {
+            'ra': {
+                'value': None
+            },
+            'dec': {
+                'value': None
+            },
+        },
+        'outputs': {
+            'success': {
+                'regex': r'^done offset',
+                'value': None,
+                'optional': False,
+                'type': str
+            }
+        }
+    },
     'pinpoint': {
-        'command': '{solve_field_path} --no-verify --overwrite --no-remove-lines --downsample {downsample} --scale-units arcsecperpix --no-plots --scale-low {scale_low} --scale-high {scale_high} --ra {ra_target} --dec {dec_target} --radius {radius} --cpulimit {cpulimit} {fits_file}',
+        'command': '{solve_field_path} --no-verify --overwrite --no-remove-lines --downsample {downsample} --scale-units arcsecperpix --no-plots --scale-low {scale_low} --scale-high {scale_high} --ra {ra_target} --dec {dec_target} --radius {radius} --cpulimit {cpulimit} {path}{fname}; rm -f {path}*.axy; rm -f {path}*.corr; rm -f {path}*.match; rm -f {path}*.new; rm -f {path}*.rdls; rm -f {path}*.solved; rm -f {path}*.wcs',
         'is_background': False,
         'inputs': {
             'solve_field_path': {
@@ -317,13 +337,13 @@ telescope_interfaces = {
         },
         # Field center: (RA,Dec) = (132.077893, 26.584066) deg.
         'outputs': {
-            'ra_center': {
+            'ra_image': {
                 'regex': r'(?<=Field center: \(RA,Dec\) = \().*?(?=\,)',
                 'value': None,
                 'type': str
             },
             # I don't love this...
-            'dec_center': {
+            'dec_image': {
                 'regex': r'(?<=, ).*?(?=\) deg.)',
                 'value': None,
                 'type': str

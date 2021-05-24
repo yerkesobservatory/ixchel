@@ -315,13 +315,19 @@ telescope_interfaces = {
                 'value': None
             }
         },
-        #Field center: (RA,Dec) = (132.077893, 26.584066) deg.
+        # Field center: (RA,Dec) = (132.077893, 26.584066) deg.
         'outputs': {
             'ra_center': {
-                'regex': r'Field center\:\s\(RA\,Dec\)\s=\s\(([0-9\-\.\+\-]+)\,',
+                'regex': r'(?<=Field center: \(RA,Dec\) = \().*?(?=\,)',
                 'value': None,
                 'type': str
-            }          
+            },
+            # I don't love this...
+            'dec_center': {
+                'regex': r'(?<=, ).*?(?=\) deg.)',
+                'value': None,
+                'type': str
+            }
         }
     },
     'convert_fits_to_jpg_hdr': {
@@ -763,7 +769,11 @@ class TelescopeInterface:
     # parse result and assign output values
     def assign_outputs(self, result):
         for key in self.get_output_keys():
-            match = re.search(self.get_output_regex(key), result)
+            # process all lines in output
+            for line in result:
+                match = re.search(self.get_output_regex(key), line)
+                if match:
+                    break
             if match:
                 self.set_output_value(key, match.group(0))
             else:

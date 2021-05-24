@@ -310,10 +310,13 @@ class IxchelCommand:
             telescope_interface.set_input_value('dec_target', dec_target)
             telescope_interface.set_input_value('radius', radius)
             telescope_interface.set_input_value('cpulimit', cpulimit)
-            telescope_interface.set_input_value('fits_file', path+fname)
+            telescope_interface.set_input_value(
+                'fits_file', '/tmp/20170129.130940818.017.cal.2017_01_29T13_09_41.wcs.fits')
             self.telescope.pinpoint(telescope_interface)
             ra_center = telescope_interface.get_output_value('ra_center')
+            dec_center = telescope_interface.get_output_value('dec_center')
             self.logger.debug('ra_center=%s' % ra_center)
+            self.logger.debug('dec_center=%s' % dec_center)
             # ra_center
 
             iteration += 1

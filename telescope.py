@@ -102,13 +102,13 @@ class SSH:
             self.logger.debug(result['stdout'])
             self.logger.debug(result['stderr'])
             if len(result['stdout']) > 0:
-                result['response'] = result['stdout'][0]
+                result['response'] = result['stdout']
             elif len(result['stderr']) > 0:
-                result['response'] = result['stderr'][0]
+                result['response'] = result['stderr']
                 self.logger.error('Command (%s) returned error (%s).' % (
                     command, result['response']))
             else:
-                result['response'] = ''
+                result['response'] = ['']
                 self.logger.warning(
                     'Command (%s) returned no response.' % (command))
         except Exception as e:
@@ -319,4 +319,4 @@ class Telescope:
         self.setter(interface)
 
     def pinpoint(self, interface):
-        self.setter(interface)        
+        self.setter(interface)

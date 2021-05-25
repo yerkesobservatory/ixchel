@@ -75,6 +75,7 @@ class IxchelCommand:
         self.image_dir = self.config.get(
             'telescope', 'image_dir')
         self.hdr = False
+        self.share_lock = False
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
@@ -92,7 +93,7 @@ class IxchelCommand:
                 self.logger.debug('Received the command: %s from %s.' % (
                     command.group(0), user.get('name')))
                 try:
-                    if 'lock' in cmd and cmd['lock'] == True and not self.is_locked_by(user):
+                    if 'lock' in cmd and cmd['lock'] == True and not self.is_locked_by(user) and not self.share_lock:
                         self.slack.send_message(
                             'Please lock the telescope before calling this command.')
                         return
@@ -621,6 +622,17 @@ class IxchelCommand:
             else:
                 self.hdr = False
             self.get_hdr(command, user)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def share_lock(self, command, user):
+        try:
+            on_off = command.group(1)
+            if (on_off == 'on'):
+                self.share_lock = True
+            else:
+                self.share_lock = False
+            self.slack.send_message('Lock sharing is %s.' % on_off)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1362,7 +1374,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\track(\s(?:on|off))$',
                     'function': self.track,
-                    'description': '`\\track <on/off> toggles telescope tracking',
+                    'description': '`\\track <on/off>` toggles telescope tracking',
                     'hide': False,
                     'lock': True
                 },
@@ -1566,6 +1578,14 @@ class IxchelCommand:
                     'regex': r'^\\hdr\s(on|off)$',
                     'function': self.set_hdr,
                     'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode',
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\share\s(on|off)$',
+                    'function': self.share_lock,
+                    'description': '`\\share <on|off>` enables/disables others to access a locked telescope',
                     'hide': False,
                     'lock': True
                 },

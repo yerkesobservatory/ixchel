@@ -116,6 +116,28 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def offset(self, command, user):
+        if not self.is_locked_by(user):
+            self.slack.send_message(
+                'Please lock the telescope before calling this command.')
+            return
+        try:
+            dRA = command.group(1).strip()
+            dDEC = command.group(2).strip()
+            self.slack.send_message('%s is offsetting the telescope by dRA=%s/dDEC=%s. Please wait...' %
+                                    (self.config.get('slack', 'username'), dRA, dDEC))
+            telescope_interface = TelescopeInterface('offset')
+            # assign values
+            telescope_interface.set_input_value('dRA', dRA)
+            telescope_interface.set_input_value('dDEC', dDEC)
+            # create a command that applies the specified values
+            self.telescope.point(telescope_interface)
+            # send output to Slack
+            self.slack.send_message(
+                'Telescope successfully offset by dRA=%s/dDEC=%s.' % (dRA, dDEC))
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def point_ra_dec(self, command, user):
         if not self.is_locked_by(user):
             self.slack.send_message(
@@ -300,8 +322,8 @@ class IxchelCommand:
                 return True
             elif(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <= max_dec_offset):
                 telescope_interface = TelescopeInterface('offset')
-                telescope_interface.set_input_value('ra', ra_offset)
-                telescope_interface.set_input_value('dec', dec_offset)
+                telescope_interface.set_input_value('dRA', ra_offset)
+                telescope_interface.set_input_value('dDEC', dec_offset)
                 self.telescope.pinpoint(telescope_interface)
                 self.slack.send_message(
                     "Telescope offset complete (dRA=%f deg, dDEC=%f deg). Obtaining next image..." % (ra_offset, dec_offset))
@@ -1392,7 +1414,7 @@ class IxchelCommand:
                     'regex': r'^\\track(\s(?:on|off))$',
                     'function': self.track,
                     'description': '`\\track <on/off> toggles telescope tracking',
-                    'hide': True
+                    'hide': False
                 },
 
                 {
@@ -1408,6 +1430,14 @@ class IxchelCommand:
                     'function': self.point_ra_dec,
                     'description': '`\\point <RA> <DEC>` points the telescope to a coordinate',
                     'hide': True
+                },
+
+                {
+                    # ra dec regex should be better
+                    'regex': r'^\\nudge(\s[0-9\-\+\.]+)(\s[0-9\-\+\.]+)$',
+                    'function': self.offset,
+                    'description': '`\\nudge <dRA> <dDEC>` offsets the telescope by dRA/dDEC degrees',
+                    'hide': False
                 },
 
                 {

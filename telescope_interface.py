@@ -284,13 +284,13 @@ telescope_interfaces = {
         }
     },
     'offset': {
-        'command': 'tx offset dec={dec} ra={ra} cos',
+        'command': 'tx offset dec={dRA} ra={dDEC} cos',
         'is_background': False,
         'inputs': {
-            'ra': {
+            'dRA': {
                 'value': None
             },
-            'dec': {
+            'dDEC': {
                 'value': None
             },
         },

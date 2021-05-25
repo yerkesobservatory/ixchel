@@ -92,6 +92,10 @@ class IxchelCommand:
                 self.logger.debug('Received the command: %s from %s.' % (
                     command.group(0), user.get('name')))
                 try:
+                    if 'lock' in cmd and cmd['lock'] == True and not self.is_locked_by(user):
+                        self.slack.send_message(
+                            'Please lock the telescope before calling this command.')
+                        return
                     cmd['function'](command, user)
                 except Exception as e:
                     self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -117,10 +121,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def offset(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             dRA = command.group(1).strip()
             dDEC = command.group(2).strip()
@@ -139,10 +139,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def point_ra_dec(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             ra = command.group(1).strip()
             dec = command.group(2).strip()
@@ -166,10 +162,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def point(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             # get object id; assume 1 if none
             if command.group(1):
@@ -341,10 +333,6 @@ class IxchelCommand:
         return False
 
     def pinpoint(self, command, user):
-        # if not self.is_locked_by(user):
-        #    self.slack.send_message(
-        #        'Please lock the telescope before calling this command.')
-        #    return
         try:
             # get object id; assume 1 if none
             if command.group(1):
@@ -372,10 +360,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def pinpoint_ra_dec(self, command, user):
-        # if not self.is_locked_by(user):
-        #     self.slack.send_message(
-        #         'Please lock the telescope before calling this command.')
-        #     return
         try:
             ra = command.group(1).strip()
             dec = command.group(2).strip()
@@ -553,10 +537,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def center_dome(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             telescope_interface = TelescopeInterface('center_dome')
             # query telescope
@@ -570,10 +550,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def home_dome(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             # right
             telescope_interface = TelescopeInterface('home_domer')
@@ -608,10 +584,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def set_slit(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             telescope_interface = TelescopeInterface('set_slit')
             # assign input values
@@ -642,10 +614,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def set_hdr(self, command, user):
-        # if not self.is_locked_by(user):
-        #     self.slack.send_message(
-        #         'Please lock the telescope before calling this command.')
-        #     return
         try:
             on_off = command.group(1)
             if (on_off == 'on'):
@@ -679,10 +647,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def set_ccd(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             telescope_interface = TelescopeInterface('set_ccd')
             # assign input values
@@ -748,10 +712,7 @@ class IxchelCommand:
             raise
 
     def set_filter(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
+
         try:
             name = self._set_filter(command.group(1))
             # send output to Slack
@@ -772,10 +733,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def set_focus(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             telescope_interface = TelescopeInterface('set_focus')
             # assign values
@@ -1019,10 +976,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def open_observatory(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             telescope_interface = TelescopeInterface('open_observatory')
             # assign values
@@ -1039,10 +992,6 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def close_observatory(self, command, user):
-        if not self.is_locked_by(user):
-            self.slack.send_message(
-                'Please lock the telescope before calling this command.')
-            return
         try:
             telescope_interface = TelescopeInterface('close_observatory')
             # assign values
@@ -1414,14 +1363,16 @@ class IxchelCommand:
                     'regex': r'^\\track(\s(?:on|off))$',
                     'function': self.track,
                     'description': '`\\track <on/off> toggles telescope tracking',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
                     'regex': r'^\\point(\s[0-9]+)?$',
                     'function': self.point,
                     'description': '`\\point <object #> or \\point <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` points the telescope to an object (run `\\find` first!) or coordinate',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1429,7 +1380,8 @@ class IxchelCommand:
                     'regex': r'^\\point(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)$',
                     'function': self.point_ra_dec,
                     'description': '`\\point <RA> <DEC>` points the telescope to a coordinate',
-                    'hide': True
+                    'hide': True,
+                    'lock': True
                 },
 
                 {
@@ -1437,14 +1389,16 @@ class IxchelCommand:
                     'regex': r'^\\nudge(\s[0-9\-\+\.]+)(\s[0-9\-\+\.]+)$',
                     'function': self.offset,
                     'description': '`\\nudge <dRA> <dDEC>` offsets the telescope by dRA/dDEC degrees',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
                     'regex': r'^\\pinpoint(\s[0-9]+)?$',
                     'function': self.pinpoint,
                     'description': '`\\pinpoint <object #> or \\pinpoint <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` uses astrometry to point the telescope to an object (run `\\find` first!) or coordinate',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1452,7 +1406,8 @@ class IxchelCommand:
                     'regex': r'^\\pinpoint(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)$',
                     'function': self.pinpoint_ra_dec,
                     'description': '`\\pinpoint <RA> <DEC>` uses astrometry to point the telescope to a coordinate',
-                    'hide': True
+                    'hide': True,
+                    'lock': True
                 },
 
                 {
@@ -1473,7 +1428,8 @@ class IxchelCommand:
                     'regex': r'^\\filter\s(%s)$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.set_filter,
                     'description': '`\\filter <%s>` sets the filter' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1487,21 +1443,24 @@ class IxchelCommand:
                     'regex': r'^\\focus\s([0-9]+)$',
                     'function': self.set_focus,
                     'description': '`\\focus <integer>` sets the telescope focus position to <integer>',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
                     'regex': r'^\\crack$',
                     'function': self.open_observatory,
                     'description': '`\\crack` opens the observatory',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
                     'regex': r'^\\squeeze$',
                     'function': self.close_observatory,
                     'description': '`\\squeeze` closes the observatory',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1592,7 +1551,8 @@ class IxchelCommand:
                     'regex': r'^\\ccd\s(cool|warm)\s([\.\+\-0-9]*)$',
                     'function': self.set_ccd,
                     'description': '`\\ccd <cool|warm> <T (°C)>` cools/warms CCD to specified temperature, T',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1606,7 +1566,8 @@ class IxchelCommand:
                     'regex': r'^\\hdr\s(on|off)$',
                     'function': self.set_hdr,
                     'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1655,7 +1616,8 @@ class IxchelCommand:
                     'regex': r'^\\slit\s(open|close)$',
                     'function': self.set_slit,
                     'description': '`\\slit <open|close>` opens/closes the dome slit.',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1669,14 +1631,16 @@ class IxchelCommand:
                     'regex': r'^\\dome\scenter$',
                     'function': self.center_dome,
                     'description': '`\\dome center` centers the dome slit on telescope',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
                     'regex': r'^\\home\sdome$',
                     'function': self.home_dome,
                     'description': '`\\home dome` calibrates the dome movement',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 }
             ]
         except Exception as e:

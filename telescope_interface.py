@@ -281,6 +281,13 @@ telescope_interfaces = {
             'date': {
                 'value': None
             }
+        },
+        'outputs': {
+            'error': {
+                'regex': r'^.*$',
+                'value': None,
+                'type': str
+            }
         }
     },
     'offset': {

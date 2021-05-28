@@ -1425,7 +1425,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\image\s([0-9\.]+)\s(1|2)\s(%s)$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_image,
-                    'description': '`\\image <exposure> <binning> <filter>` takes an image',
+                    'description': '`\\image <exposure (s)> <binning> <%s>` takes an image' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'hide': False
                 },
 
@@ -1607,7 +1607,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\dark\s([0-9]+)\s(1|2)$',
                     'function': self.get_dark,
-                    'description': '`\\dark <exposure> <binning>` takes a dark frame',
+                    'description': '`\\dark <exposure (s)> <binning>` takes a dark frame',
                     'hide': False
                 },
 

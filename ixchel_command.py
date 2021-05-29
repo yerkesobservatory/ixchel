@@ -877,7 +877,7 @@ class IxchelCommand:
     def get_dark(self, command, user):
         try:
             filter = self.config.get('telescope', 'filter_for_darks')
-            exposure = int(command.group(1))
+            exposure = float(command.group(1))
             bin = int(command.group(2))
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
@@ -1605,7 +1605,7 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\dark\s([0-9]+)\s(1|2)$',
+                    'regex': r'^\\dark\s([0-9\.]+)\s(1|2)$',
                     'function': self.get_dark,
                     'description': '`\\dark <exposure (s)> <binning>` takes a dark frame',
                     'hide': False

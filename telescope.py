@@ -55,6 +55,7 @@ class SSH:
         try:
             self.logger.debug('Running background command: %s' % command)
             stdin, stdout, stderr = self.ssh.exec_command('%s &' % command)
+            stdout.channel.recv_exit_status()
             result['stdout'] = stdout.readlines()
             result['stderr'] = stderr.readlines()
             self.logger.debug(result['stdout'])
@@ -97,6 +98,7 @@ class SSH:
         try:
             self.logger.debug('Running foreground command: %s' % command)
             stdin, stdout, stderr = self.ssh.exec_command(command)
+            stdout.channel.recv_exit_status()
             result['stdout'] = stdout.readlines()
             result['stderr'] = stderr.readlines()
             self.logger.debug(result['stdout'])
@@ -298,6 +300,9 @@ class Telescope:
         self.setter(interface)
 
     def unlock(self, interface):
+        self.setter(interface)
+
+    def keepopen(self, interface):
         self.setter(interface)
 
     def open_observatory(self, interface):

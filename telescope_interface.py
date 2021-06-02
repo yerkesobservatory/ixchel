@@ -291,7 +291,7 @@ telescope_interfaces = {
         }
     },
     'offset': {
-        'command': 'tx offset dec={dDEC} ra={dRA} cos',
+        'command': 'tx offset dec={dDEC} ra={dRA}',
         'is_background': False,
         'inputs': {
             'dRA': {

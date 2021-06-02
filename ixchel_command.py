@@ -204,14 +204,18 @@ class IxchelCommand:
         scale_high = self.config.get('pinpoint', 'scale_high', 2.00)
         radius = self.config.get('pinpoint', 'radius', 50.0)
         cpulimit = self.config.get('pinpoint', 'cpu_limit', 30)
-        max_ra_offset = self.config.get('pinpoint', 'max_ra_offset', 50.0)
-        max_dec_offset = self.config.get('pinpoint', 'max_dec_offset', 50.0)
-        min_ra_offset = self.config.get('pinpoint', 'min_ra_offset', 0.05)
-        min_dec_offset = self.config.get('pinpoint', 'min_dec_offset', 0.05)
+        max_ra_offset = float(self.config.get(
+            'pinpoint', 'max_ra_offset', 50.0))
+        max_dec_offset = float(self.config.get(
+            'pinpoint', 'max_dec_offset', 50.0))
+        min_ra_offset = float(self.config.get(
+            'pinpoint', 'min_ra_offset', 0.05))
+        min_dec_offset = float(self.config.get(
+            'pinpoint', 'min_dec_offset', 0.05))
         max_tries = int(self.config.get('pinpoint', 'max_tries', 5))
         time = self.config.get('pinpoint', 'time', 10)
         bin = self.config.get('pinpoint', 'bin', 2)
-        filter = self.config.get('pinpoint', 'filter')
+        filter = self.config.get('pinpoint', 'filter', 'clear')
         user = self.slack.get_user_by_id(_user['id']).get('name', _user['id'])
 
         # name and path for pinpoint images
@@ -250,26 +254,9 @@ class IxchelCommand:
         original_filter = filters[num-1]
         # change filter to 'filter_for_pinpoint' if not already set
         if(original_filter != filter):
-            telescope_interface = TelescopeInterface('set_filter')
-            num = filters.index(self.config.get(
-                'telescope', 'filter_for_pinpoint')) + 1
-            # assign values
-            telescope_interface.set_input_value('num', num)
-            self.telescope.set_filter(telescope_interface)
-            num = telescope_interface.get_output_value('num')
+            result = self._set_filter(filter)
             self.logger.debug('Filter changed from %s to %s.' %
-                              (original_filter, filters[num-1]))
-
-        # change filter back to original_filter
-        if(original_filter != filter):
-            telescope_interface = TelescopeInterface('set_filter')
-            num = filters.index(original_filter) + 1
-            # assign values
-            telescope_interface.set_input_value('num', num)
-            self.telescope.set_filter(telescope_interface)
-            num = telescope_interface.get_output_value('num')
-            self.logger.debug('Filter changed from %s to %s.' % (
-                self.config.get('telescope', 'filter_for_pinpoint'), filters[num-1]))
+                              (original_filter, result))
 
         # turn off HDR mode
         hdr = self.hdr
@@ -312,6 +299,11 @@ class IxchelCommand:
 
             if(abs(ra_offset) <= min_ra_offset and abs(dec_offset) <= min_dec_offset):
                 self.hdr = hdr
+                # change filter back to original_filter
+                if(original_filter != filter):
+                    result = self._set_filter(filter)
+                    self.logger.debug('Filter changed from %s to %s.' % (
+                        original_filter, result))
                 return True
             elif(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <= max_dec_offset):
                 telescope_interface = TelescopeInterface('offset')
@@ -324,6 +316,11 @@ class IxchelCommand:
                 self.logger.error("Calculated offsets too large (dRA=%f deg, dDEC=%f deg)! Pinpoint aborted." % (
                     ra_offset, dec_offset))
                 self.hdr = hdr
+                # change filter back to original_filter
+                if(original_filter != filter):
+                    result = self._set_filter(filter)
+                    self.logger.debug('Filter changed from %s to %s.' % (
+                        original_filter, result))
                 return False
 
             iteration += 1
@@ -331,6 +328,12 @@ class IxchelCommand:
         self.logger.error(
             'Pinpoint exceeded maximum number of iterations (%d).' % max_tries)
         self.hdr = hdr  # restore HDR setting
+        # change filter back to original_filter
+        if(original_filter != filter):
+            result = self._set_filter(filter)
+            self.logger.debug('Filter changed from %s to %s.' %
+                              (original_filter, result))
+
         return False
 
     def pinpoint(self, command, user):
@@ -741,6 +744,20 @@ class IxchelCommand:
             pos = telescope_interface.get_output_value('pos')
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def keepopen(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('keepopen')
+            # assign values
+            maxtime = int(command.group(1))
+            telescope_interface.set_input_value('maxtime', maxtime)
+            # create a command that applies the specified values
+            self.telescope.keepopen(telescope_interface)
+            # send output to Slack
+            self.slack.send_message(
+                'Keepopen slit timer is set to %d s.' % maxtime)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1464,6 +1481,14 @@ class IxchelCommand:
                     'function': self.open_observatory,
                     'description': '`\\crack` opens the observatory',
                     'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\keepopen\s([0-9]+)$',
+                    'function': self.keepopen,
+                    'description': '`\\keepopen <duration (s)>` sets timer to automatically close slit to <duration> seconds',
+                    'hide': True,
                     'lock': True
                 },
 

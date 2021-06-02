@@ -291,7 +291,7 @@ telescope_interfaces = {
         }
     },
     'offset': {
-        'command': 'tx offset dec={dRA} ra={dDEC} cos',
+        'command': 'tx offset dec={dDEC} ra={dRA} cos',
         'is_background': False,
         'inputs': {
             'dRA': {
@@ -338,7 +338,10 @@ telescope_interfaces = {
             'cpulimit': {
                 'value': None
             },
-            'fits_file': {
+            'fname': {
+                'value': None
+            },
+            'path': {
                 'value': None
             }
         },
@@ -562,7 +565,7 @@ telescope_interfaces = {
         }
     },
     'open_observatory': {
-        'command': 'openup_nolock nocloud; keepopen maxtime=36000 slit',
+        'command': 'openup_nolock nocloud; keepopen kill maxtime=36000 slit >& /dev/null',
         'inputs': {
         },
         'outputs': {
@@ -572,6 +575,16 @@ telescope_interfaces = {
                 'optional': True,
                 'type': str
             }
+        }
+    },
+    'keepopen': {
+        'command': 'keepopen kill maxtime={maxtime} dome >& /dev/null',
+        'inputs': {
+            'maxtime': {
+                'value': None
+            }
+        },
+        'outputs': {
         }
     },
     'close_observatory': {
@@ -702,13 +715,13 @@ class TelescopeInterface:
     def get_command(self):
         return self.command['command']
 
-    # get command text
+    # get is_background
     def is_background(self):
         try:
             return self.command['is_background']
         except Exception as e:
             self.logger.info(
-                'Command is_background not found. Assumed False.')
+                'A value of is_background not found. Assumed False.')
             return False
 
     # get names (keys) of all outputs

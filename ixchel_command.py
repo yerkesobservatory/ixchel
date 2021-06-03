@@ -464,8 +464,9 @@ class IxchelCommand:
     #         self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def get_help(self, command, user):
-        help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
-            '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
+        help_message = '%s welcomes you, brave mortal. What is your request?\n' % self.username
+#        help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
+#            '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
         for cmd in sorted(self.commands, key=lambda i: i['regex']):
             if not cmd['hide']:
                 help_message += '>%s\n' % cmd['description']

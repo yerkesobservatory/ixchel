@@ -40,7 +40,7 @@ class Ixchel:
         # init IxchelCommand
         self.ixchel_commands = IxchelCommand(self)
         # update settings
-        self.username = self.config.get('slack', 'username')
+        self.bot_name = self.config.get('slack', 'bot_name')
         self.channel = self.config.get('slack', 'channel_name')
         self.channel_id = self.config.get('slack', 'channel_id')
 
@@ -63,7 +63,7 @@ class Ixchel:
             else:  # message posted directly to bot
                 self.logger.debug('Received direct message.')
                 self.slack.send_message('Please use the channel #%s for communications with %s.' % (
-                    self.channel, self.username), None, message['channel'], self.username)
+                    self.channel, self.bot_name), None, message['channel'], self.bot_name)
 
     def process(self, message):
         if not 'text' in message:
@@ -117,5 +117,5 @@ try:
 except asyncio.CancelledError as e:
     logger.error('Exception ( % s).' % e)
 finally:
-    logger.info("%s has stopped." % ixchel.username)
+    logger.info("%s has stopped." % ixchel.bot_name)
     loop.close()

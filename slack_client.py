@@ -17,7 +17,7 @@ class Slack:
         self.config = ixchel.config
         self.token = self.config.get('slack', 'token')
         self.channel = self.config.get('slack', 'channel_name')
-        self.username = self.config.get('slack', 'username')
+        self.bot_name = self.config.get('slack', 'bot_name')
         self.dt_last_ping = datetime.datetime.now()
         self.ping_delay_s = float(self.config.get('slack', 'ping_delay_s', 5))
         self.reconnect_delay_s = float(self.config.get(
@@ -58,7 +58,7 @@ class Slack:
         if channel == None:
             channel = self.channel
         if username == None:
-            username = self.username
+            username = self.bot_name
         try:
             self.web.chat_postMessage(
                 channel=channel,
@@ -81,7 +81,7 @@ class Slack:
         if channel == None:
             channel = self.channel
         if username == None:
-            username = self.username
+            username = self.bot_name
         try:
             self.web.chat_postMessage(
                 channel=channel,
@@ -109,7 +109,7 @@ class Slack:
         if channel == None:
             channel = self.channel
         if username == None:
-            username = self.username
+            username = self.bot_name
         try:
             files = {'file': open(path, 'rb')}
             data = {'channels': channel,

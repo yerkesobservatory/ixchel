@@ -69,7 +69,7 @@ class IxchelCommand:
         self.ixchel = ixchel
         self.config = ixchel.config
         self.channel = self.config.get('slack', 'channel_name')
-        self.username = self.config.get('slack', 'username')
+        self.bot_name = self.config.get('slack', 'bot_name')
         self.slack = ixchel.slack
         self.telescope = ixchel.telescope
         self.image_dir = self.config.get(
@@ -102,7 +102,7 @@ class IxchelCommand:
                     self.handle_error(command.group(0), 'Exception (%s).' % e)
                 return
         self.slack.send_message(
-            '%s does not recognize your command (%s).' % (self.username, text))
+            '%s does not recognize your command (%s).' % (self.bot_name, text))
 
     def handle_error(self, command, error):
         self.logger.error('Command failed (%s). %s' % (command, error))
@@ -126,7 +126,7 @@ class IxchelCommand:
             dRA = command.group(1).strip()
             dDEC = command.group(2).strip()
             self.slack.send_message('%s is offsetting the telescope by dRA=%s/dDEC=%s. Please wait...' %
-                                    (self.config.get('slack', 'username'), dRA, dDEC))
+                                    (self.config.get('slack', 'bot_name'), dRA, dDEC))
             telescope_interface = TelescopeInterface('offset')
             # assign values
             telescope_interface.set_input_value('dRA', dRA)
@@ -144,7 +144,7 @@ class IxchelCommand:
             ra = command.group(1).strip()
             dec = command.group(2).strip()
             self.slack.send_message('%s is pointing the telescope to RA=%s/DEC=%s. Please wait...' %
-                                    (self.config.get('slack', 'username'), ra, dec))
+                                    (self.config.get('slack', 'bot_name'), ra, dec))
             # turn on telescope tracking
             telescope_interface = TelescopeInterface('track')
             telescope_interface.set_input_value('on_off', 'on')
@@ -172,12 +172,12 @@ class IxchelCommand:
             # ensure object id is valid
             if id < 1 or id > len(self.skyObjects):
                 self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
-                    self.config.get('slack', 'username'), id))
+                    self.config.get('slack', 'bot_name'), id))
                 return
             # find corresponding object
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pointing the telescope to "%s". Please wait...' % (
-                self.config.get('slack', 'username'), skyObject.name))
+                self.config.get('slack', 'bot_name'), skyObject.name))
             # turn on telescope tracking
             telescope_interface = TelescopeInterface('track')
             telescope_interface.set_input_value('on_off', 'on')
@@ -238,12 +238,16 @@ class IxchelCommand:
         self.telescope.center_dome(telescope_interface)
 
         # point the telescope
-        self.logger.info('Pointing to RA=%s, DEC=%s.' %
-                         (ra.replace(' ', ':'),  dec.replace(' ', ':')))
+        # self.logger.info('Pointing to RA=%s, DEC=%s.' %
+        #                 (ra.replace(' ', ':'),  dec.replace(' ', ':')))
+        self.slack.send_message('%s is pointing the telescope to RA=%s/DEC=%s. Please wait...' %
+                                (self.config.get('slack', 'bot_name'), ra, dec))
         telescope_interface = TelescopeInterface('point')
         telescope_interface.set_input_value('ra', ra)
         telescope_interface.set_input_value('dec', dec)
         self.telescope.point(telescope_interface)
+        self.slack.send_message(
+            'Telescope successfully pointed to RA=%s/DEC=%s.' % (ra, dec))
 
         # get current filter setting
         telescope_interface = TelescopeInterface('get_filter')
@@ -265,11 +269,10 @@ class IxchelCommand:
         # start pinpoint iterations
         iteration = 0
         while(iteration < max_tries):
-
+            self.slack.send_message(
+                'Obtaining intermediate image (#%d) for pinpoint astrometry...' % (iteration+1))
             error = self._get_image(time, bin, filter, path, fname)
             if error:
-                self.slack.send_message(
-                    'Obtained intermediate image (#%d) for pinpoint astrometry.' % iteration)
                 self.slack_send_fits_file(path + fname, fname)
             else:
                 self.handle_error(command.group(0), 'Error (%s).' % error)
@@ -306,12 +309,12 @@ class IxchelCommand:
                         original_filter, result))
                 return True
             elif(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <= max_dec_offset):
+                self.slack.send_message(
+                    "Adjusting telescope pointing (dRA=%f deg, dDEC=%f deg)..." % (ra_offset, dec_offset))
                 telescope_interface = TelescopeInterface('offset')
                 telescope_interface.set_input_value('dRA', ra_offset)
                 telescope_interface.set_input_value('dDEC', dec_offset)
                 self.telescope.pinpoint(telescope_interface)
-                self.slack.send_message(
-                    "Telescope offset complete (dRA=%f deg, dDEC=%f deg). Obtaining next image..." % (ra_offset, dec_offset))
             else:
                 self.logger.error("Calculated offsets too large (dRA=%f deg, dDEC=%f deg)! Pinpoint aborted." % (
                     ra_offset, dec_offset))
@@ -346,12 +349,12 @@ class IxchelCommand:
             # ensure object id is valid
             if id < 1 or id > len(self.skyObjects):
                 self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
-                    self.config.get('slack', 'username'), id))
+                    self.config.get('slack', 'bot_name'), id))
                 return
             # find corresponding object
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
-                self.config.get('slack', 'username'), skyObject.name))
+                self.config.get('slack', 'bot_name'), skyObject.name))
             success = self._pinpoint(
                 command, user, skyObject.ra, skyObject.dec)
             if success:
@@ -368,7 +371,7 @@ class IxchelCommand:
             ra = command.group(1).strip()
             dec = command.group(2).strip()
             self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
-                                    (self.config.get('slack', 'username'), ra, dec))
+                                    (self.config.get('slack', 'bot_name'), ra, dec))
             success = self._pinpoint(
                 command, user, ra, dec)
             if success:
@@ -384,7 +387,7 @@ class IxchelCommand:
         ra = command.group(1)
         dec = command.group(2)
         self.slack.send_message('%s is calculating when RA=%s/DEC=%s is observable from your location. Please wait...' %
-                                (self.config.get('slack', 'username'), ra, dec))
+                                (self.config.get('slack', 'bot_name'), ra, dec))
         self.coordinate.plot(ra, dec)
 
     def plot(self, command, user):
@@ -396,12 +399,12 @@ class IxchelCommand:
         # ensure object id is valid
         if id < 1 or id > len(self.skyObjects):
             self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
-                self.config.get('slack', 'username'), id))
+                self.config.get('slack', 'bot_name'), id))
             return
         # find corresponding object
         skyObject = self.skyObjects[id-1]
         self.slack.send_message('%s is calculating when "%s" is observable from your location. Please wait...' % (
-            self.config.get('slack', 'username'), skyObject.name))
+            self.config.get('slack', 'bot_name'), skyObject.name))
         if skyObject.type == 'Solar System':
             self.solarSystem.plot(skyObject)
         elif skyObject.type == "Celestial":
@@ -414,7 +417,7 @@ class IxchelCommand:
         try:
             search_string = command.group(1)
             self.slack.send_message('%s is searching the cosmos for "%s". Please wait...' % (
-                self.config.get('slack', 'username'), search_string))
+                self.config.get('slack', 'bot_name'), search_string))
             satellites = self.satellite.find(search_string)
             celestials = self.celestial.find(search_string)
             solarSystems = self.solarSystem.find(search_string)
@@ -427,7 +430,7 @@ class IxchelCommand:
                 # calculate local time of observatory
                 telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
                 self.slack.send_message('%s found %d match(es):' % (
-                    self.config.get('slack', 'username'), len(self.skyObjects)))
+                    self.config.get('slack', 'bot_name'), len(self.skyObjects)))
                 for skyObject in self.skyObjects:
                     # create SkyCoord instance from RA and DEC
                     c = SkyCoord(skyObject.ra, skyObject.dec,
@@ -445,7 +448,7 @@ class IxchelCommand:
                     time.sleep(1)
             else:
                 self.slack.send_message(
-                    'Sorry, %s knows all but *still* could not find "%s".' % (self.config.get('slack', 'username'), search_string))
+                    'Sorry, %s knows all but *still* could not find "%s".' % (self.config.get('slack', 'bot_name'), search_string))
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -464,9 +467,10 @@ class IxchelCommand:
     #         self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def get_help(self, command, user):
-        help_message = '%s welcomes you, brave mortal. What is your request?\n' % self.username
-#        help_message = 'Here are some helpful tips:\n' + '>Please report %s issues here: https://github.com/mcnowinski/seo/issues/new\n' % self.username + \
-#            '>A more detailed %s tutorial can be found here: https://stoneedgeobservatory.com/guide-to-using-itzamna/\n' % self.username
+        slack_user = self.slack.get_user_by_id(
+            user['id']).get('name', user['id'])
+        help_message = self.config.get('slack', 'help_message').format(
+            bot_name=self.bot_name, user=slack_user) + '\n'
         for cmd in sorted(self.commands, key=lambda i: i['regex']):
             if not cmd['hide']:
                 help_message += '>%s\n' % cmd['description']
@@ -543,6 +547,8 @@ class IxchelCommand:
 
     def center_dome(self, command, user):
         try:
+            self.slack.send_message(
+                'Centering dome. Please wait...')
             telescope_interface = TelescopeInterface('center_dome')
             # query telescope
             self.telescope.center_dome(telescope_interface)
@@ -556,6 +562,8 @@ class IxchelCommand:
 
     def home_dome(self, command, user):
         try:
+            self.slack.send_message(
+                'Homing dome. Please wait...')
             # right
             telescope_interface = TelescopeInterface('home_domer')
             # query telescope
@@ -728,7 +736,6 @@ class IxchelCommand:
             raise
 
     def set_filter(self, command, user):
-
         try:
             name = self._set_filter(command.group(1))
             # send output to Slack
@@ -862,6 +869,7 @@ class IxchelCommand:
 
     def get_image(self, command, user):
         try:
+            self.slack.send_message('Obtaining image. Please wait...')
             filter = command.group(3)
             exposure = float(command.group(1))
             bin = int(command.group(2))
@@ -894,6 +902,7 @@ class IxchelCommand:
 
     def get_dark(self, command, user):
         try:
+            self.slack.send_message('Obtaining dark image. Please wait...')
             filter = self.config.get('telescope', 'filter_for_darks')
             exposure = float(command.group(1))
             bin = int(command.group(2))
@@ -926,6 +935,7 @@ class IxchelCommand:
 
     def get_bias(self, command, user):
         try:
+            self.slack.send_message('Obtaining bias image. Please wait...')
             filter = self.config.get('telescope', 'filter_for_darks')
             exposure = self.config.get('telescope', 'exposure_for_bias')
             bin = int(command.group(1))
@@ -974,15 +984,19 @@ class IxchelCommand:
         try:
             telescope_interface = TelescopeInterface('set_lock')
             # assign values
-            user = user['id']
-            telescope_interface.set_input_value('user', user)
+            telescope_interface.set_input_value('user', user['id'])
             # query telescope
             self.telescope.set_lock(telescope_interface)
             # assign values
-            user = telescope_interface.get_output_value('user')
+            _user = telescope_interface.get_output_value('user')
             # send output to Slack
             self.slack.send_message(
                 'Telescope is locked.')
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
+            welcome_message = self.config.get('slack', 'welcome_message').format(
+                bot_name=self.bot_name, user=slack_user)
+            self.slack.send_message(welcome_message)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1007,6 +1021,8 @@ class IxchelCommand:
 
     def open_observatory(self, command, user):
         try:
+            self.slack.send_message(
+                'Cracking observatory. Please wait...')
             telescope_interface = TelescopeInterface('open_observatory')
             # assign values
             # query telescope
@@ -1023,6 +1039,8 @@ class IxchelCommand:
 
     def close_observatory(self, command, user):
         try:
+            self.slack.send_message(
+                'Squeezing observatory. Please wait...')
             telescope_interface = TelescopeInterface('close_observatory')
             # assign values
             # query telescope
@@ -1155,6 +1173,8 @@ class IxchelCommand:
     def to_stars(self, command, user):
         # get sky image from SEO camera
         try:
+            self.slack.send_message(
+                'Transferring recent images to stars.uchicago.edu. Please wait...')
             telescope_interface = TelescopeInterface('to_stars')
             # assign input
             telescope_interface.set_input_value('image_dir', self.config.get(
@@ -1589,7 +1609,7 @@ class IxchelCommand:
                     'regex': r'^\\ccd\s(cool|warm)\s([\.\+\-0-9]*)$',
                     'function': self.set_ccd,
                     'description': '`\\ccd <cool|warm> <T (°C)>` cools/warms CCD to specified temperature, T',
-                    'hide': False,
+                    'hide': True,
                     'lock': True
                 },
 

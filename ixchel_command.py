@@ -62,7 +62,6 @@ class IxchelCommand:
 
     commands = []
     skyObjects = []
-    targetName = 'unknown'
 
     def __init__(self, ixchel):
         self.logger = logging.getLogger('IxchelCommand')
@@ -74,8 +73,10 @@ class IxchelCommand:
         self.telescope = ixchel.telescope
         self.image_dir = self.config.get(
             'telescope', 'image_dir')
+        # states to save
         self.hdr = False
         self.share = False
+        self.target = 'unknown'
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
@@ -83,6 +84,11 @@ class IxchelCommand:
         self.celestial = Celestial(ixchel)
         self.solarSystem = SolarSystem(ixchel)
         self.coordinate = Coordinate(ixchel)
+
+    def set_target(self, target='unknown'):
+        self.target = target.strip().lower()  # lower case
+        # replace non-alphanumerics
+        self.target = re.sub('[^A-Za-z0-9\+\-]', '_', self.target)
 
     def parse(self, message):
         text = message['text'].strip()
@@ -141,6 +147,7 @@ class IxchelCommand:
 
     def point_ra_dec(self, command, user):
         try:
+            self.set_target()
             ra = command.group(1).strip()
             dec = command.group(2).strip()
             self.slack.send_message('%s is pointing the telescope to RA=%s/DEC=%s. Please wait...' %
@@ -159,6 +166,10 @@ class IxchelCommand:
             # send output to Slack
             self.slack.send_message(
                 'Telescope successfully pointed to RA=%s/DEC=%s.' % (ra, dec))
+            # regex to format RA/dec for filename
+            _ra = re.sub('^(\d{1,2}):(\d{2}):(\d{2}).+', r'\1h\2m\3s', ra)
+            _dec = re.sub('(\d{1,2}):(\d{2}):(\d{2}).+', r'\1d\2m\3s', dec)                
+            self.set_target('%s%s' % (_ra, _dec))
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -174,6 +185,7 @@ class IxchelCommand:
                 self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
                     self.config.get('slack', 'bot_name'), id))
                 return
+            self.set_target()
             # find corresponding object
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pointing the telescope to "%s". Please wait...' % (
@@ -192,6 +204,7 @@ class IxchelCommand:
             # send output to Slack
             self.slack.send_message(
                 'Telescope successfully pointed to %s.' % skyObject.name)
+            self.set_target(skyObject.name)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -351,6 +364,7 @@ class IxchelCommand:
                 self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
                     self.config.get('slack', 'bot_name'), id))
                 return
+            self.set_target()
             # find corresponding object
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
@@ -360,6 +374,7 @@ class IxchelCommand:
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to %s.' % skyObject.name)
+                self.set_target(skyObject.name)
             else:
                 self.slack.send_message(
                     'Telescope failed to pinpoint to %s.' % skyObject.name)
@@ -368,6 +383,7 @@ class IxchelCommand:
 
     def pinpoint_ra_dec(self, command, user):
         try:
+            self.set_target()
             ra = command.group(1).strip()
             dec = command.group(2).strip()
             self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
@@ -377,6 +393,10 @@ class IxchelCommand:
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
+                # regex to format RA/dec for filename
+                _ra = re.sub('^(\d{1,2}):(\d{2}):(\d{2}).+', r'\1h\2m\3s', ra)
+                _dec = re.sub('(\d{1,2}):(\d{2}):(\d{2}).+', r'\1d\2m\3s', dec)                
+                self.set_target('%s%s' % (_ra, _dec))
             else:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
@@ -877,13 +897,13 @@ class IxchelCommand:
                 user['id']).get('name', user['id'])
             if self.hdr:
                 fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
-                    self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             else:
                 fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
-                    self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             # only gets used if self.hdr == True
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
@@ -916,7 +936,7 @@ class IxchelCommand:
                     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             # only gets used if self.hdr == True
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
@@ -948,7 +968,7 @@ class IxchelCommand:
                 fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
                     'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                self.targetName, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
@@ -979,7 +999,7 @@ class IxchelCommand:
     def set_lock(self, command, user):
         if self.is_locked():
             self.slack.send_message(
-                'Telescope is locked by %s.' % self.locked_by())
+                'Telescope is already locked by %s.' % self.locked_by())
             return
         try:
             telescope_interface = TelescopeInterface('set_lock')
@@ -1039,6 +1059,7 @@ class IxchelCommand:
 
     def close_observatory(self, command, user):
         try:
+            self.set_target()
             self.slack.send_message(
                 'Squeezing observatory. Please wait...')
             telescope_interface = TelescopeInterface('close_observatory')
@@ -1464,7 +1485,8 @@ class IxchelCommand:
                     'regex': r'^\\image\s([0-9\.]+)\s(1|2)\s(%s)$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_image,
                     'description': '`\\image <exposure (s)> <binning> <%s>` takes an image' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
@@ -1654,14 +1676,16 @@ class IxchelCommand:
                     'regex': r'^\\dark\s([0-9\.]+)\s(1|2)$',
                     'function': self.get_dark,
                     'description': '`\\dark <exposure (s)> <binning>` takes a dark frame',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {
                     'regex': r'^\\bias\s(1|2)$',
                     'function': self.get_bias,
                     'description': '`\\bias <binning>` takes a bias frame',
-                    'hide': False
+                    'hide': False,
+                    'lock': True
                 },
 
                 {

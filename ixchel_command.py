@@ -168,7 +168,7 @@ class IxchelCommand:
                 'Telescope successfully pointed to RA=%s/DEC=%s.' % (ra, dec))
             # regex to format RA/dec for filename
             _ra = re.sub('^(\d{1,2}):(\d{2}):(\d{2}).+', r'\1h\2m\3s', ra)
-            _dec = re.sub('(\d{1,2}):(\d{2}):(\d{2}).+', r'\1d\2m\3s', dec)                
+            _dec = re.sub('(\d{1,2}):(\d{2}):(\d{2}).+', r'\1d\2m\3s', dec)
             self.set_target('%s%s' % (_ra, _dec))
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -395,7 +395,7 @@ class IxchelCommand:
                     'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
                 # regex to format RA/dec for filename
                 _ra = re.sub('^(\d{1,2}):(\d{2}):(\d{2}).+', r'\1h\2m\3s', ra)
-                _dec = re.sub('(\d{1,2}):(\d{2}):(\d{2}).+', r'\1d\2m\3s', dec)                
+                _dec = re.sub('(\d{1,2}):(\d{2}):(\d{2}).+', r'\1d\2m\3s', dec)
                 self.set_target('%s%s' % (_ra, _dec))
             else:
                 self.slack.send_message(
@@ -936,7 +936,7 @@ class IxchelCommand:
                     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             # only gets used if self.hdr == True
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'
@@ -968,7 +968,7 @@ class IxchelCommand:
                 fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
                     'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
             path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                 '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 slack_user + '/'

@@ -825,50 +825,6 @@ class IxchelCommand:
             raise ValueError(
                 'Failed to send the fits file (%s) to Slack.' % fits_file)
 
-    # def _slack_send_fits_file_hdr(self, fits_file, comment):
-    #     # try:
-    #     hdrs = ['high', 'low']
-    #     for hdr in hdrs:
-    #         # add high or low for hdr
-    #         filename = PurePosixPath(fits_file)
-    #         suffixes = ''.join(filename.suffixes)
-    #         self.logger.info(suffixes)
-    #         # fits_file_hdr = str(filename.with_suffix('')) + \
-    #         #     '.' + hdr + str(filename.suffix)
-    #         fits_file_hdr = fits_file[0:-len(suffixes)] + \
-    #             '.' + hdr + str(suffixes)
-    #         # updated fits file name
-    #         fits_file_new = str(filename.parent) + '/' + \
-    #             hdr + '-' + str(filename.name)
-    #         telescope_interface = TelescopeInterface(
-    #             'convert_fits_to_jpg_hdr')
-    #         telescope_interface.set_input_value(
-    #             'fits_file_hdr', fits_file_hdr)
-    #         telescope_interface.set_input_value('fits_file', fits_file_new)
-    #         telescope_interface.set_input_value('tiff_file', self.config.get(
-    #             'telescope', 'convert_tiff_remote_file_path'))
-    #         telescope_interface.set_input_value('jpg_file', self.config.get(
-    #             'telescope', 'convert_jpg_remote_file_path'))
-    #         self.telescope.convert_fits_to_jpg(telescope_interface)
-    #         success = self.telescope.get_file(self.config.get(
-    #             'telescope', 'convert_jpg_remote_file_path'), self.config.get('telescope', 'convert_jpg_local_file_path'))
-    #         if success:
-    #             self.logger.debug('Convert the fits file to an image!')
-    #             self.slack.send_file(self.config.get(
-    #                 'telescope', 'convert_jpg_local_file_path'), str(PurePosixPath(fits_file_new).name))
-    #         else:
-    #             self.logger.error(
-    #                 'Failed to get telescope image from remote server.')
-    #     # except Exception as e:
-    #     #     raise ValueError(
-    #     #         'Failed to send the fits file (%s) to Slack.' % fits_file)
-
-    # def slack_send_fits_file(self, fits_file, comment):
-    #     if(self.hdr):
-    #         self._slack_send_fits_file_hdr(fits_file, comment)
-    #     else:
-    #         self._slack_send_fits_file(fits_file, comment)
-
     def _get_image(self, exposure, bin, filter, path, fname, dark=False, low_fname=''):
         # set filter
         self._set_filter(filter)
@@ -889,99 +845,135 @@ class IxchelCommand:
 
     def get_image(self, command, user):
         try:
-            self.slack.send_message('Obtaining image. Please wait...')
             filter = command.group(3)
             exposure = float(command.group(1))
             bin = int(command.group(2))
+            count = 1
+            if command.group(4) is not None:
+                count = int(command.group(4))
+                if count > int(self.config.get('telescope', 'max_image_count')):
+                    self.slack.send_message(
+                        'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
+                    return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            if self.hdr:
-                fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
-                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            else:
-                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
-                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            # only gets used if self.hdr == True
-            low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                slack_user + '/'
-            error = self._get_image(
-                exposure, bin, filter, path, fname, False, low_fname)
-            if error:
+            # get <count> frames
+            index = 0
+            while(index < count):
                 self.slack.send_message(
-                    'Image command completed successfully.')
-                self.slack_send_fits_file(path + fname, fname)
+                    'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    self.slack_send_fits_file(path + low_fname, low_fname)
-            else:
-                self.handle_error(command.group(0), 'Error (%s).' % error)
+                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                else:
+                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                # only gets used if self.hdr == True
+                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                    slack_user + '/'
+                error = self._get_image(
+                    exposure, bin, filter, path, fname, False, low_fname)
+                if error:
+                    self.slack.send_message(
+                        'Image command completed successfully.')
+                    self.slack_send_fits_file(path + fname, fname)
+                    if self.hdr:
+                        self.slack_send_fits_file(path + low_fname, low_fname)
+                else:
+                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                index = index + 1 
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def get_dark(self, command, user):
         try:
-            self.slack.send_message('Obtaining dark image. Please wait...')
             filter = self.config.get('telescope', 'filter_for_darks')
             exposure = float(command.group(1))
             bin = int(command.group(2))
+            count = 1
+            if command.group(3) is not None:
+                count = int(command.group(3))
+                if count > int(self.config.get('telescope', 'max_image_count')):
+                    self.slack.send_message(
+                        'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
+                    return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            if self.hdr:
-                fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
-                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            else:
-                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
-                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            # only gets used if self.hdr == True
-            low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                slack_user + '/'
-            error = self._get_image(
-                exposure, bin, filter, path, fname, True, low_fname)
-            if error:
+            # get <count> frames
+            index = 0
+            while(index < count):
                 self.slack.send_message(
-                    'Image command completed successfully.')
-                self.slack_send_fits_file(path + fname, fname)
+                    'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    self.slack_send_fits_file(path + low_fname, low_fname)
-            else:
-                self.handle_error(command.group(0), 'Error (%s).' % error)
+                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                else:
+                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                # only gets used if self.hdr == True
+                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                    slack_user + '/'
+                error = self._get_image(
+                    exposure, bin, filter, path, fname, True, low_fname)
+                if error:
+                    self.slack.send_message(
+                        'Image command completed successfully.')
+                    self.slack_send_fits_file(path + fname, fname)
+                    if self.hdr:
+                        self.slack_send_fits_file(path + low_fname, low_fname)
+                else:
+                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                index = index + 1    
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def get_bias(self, command, user):
         try:
-            self.slack.send_message('Obtaining bias image. Please wait...')
             filter = self.config.get('telescope', 'filter_for_darks')
             exposure = self.config.get('telescope', 'exposure_for_bias')
             bin = int(command.group(1))
+            count = 1
+            if command.group(2) is not None:
+                count = int(command.group(2))
+                if count > int(self.config.get('telescope', 'max_image_count')):
+                    self.slack.send_message(
+                        'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
+                    return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            if self.hdr:
-                fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%d_RAW.fits.gz' % (
-                    'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            else:
-                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits.gz' % (
-                    'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%d_RAW.fits.gz' % (
-                'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
-            path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                slack_user + '/'
-            error = self._get_image(
-                exposure, bin, filter, path, fname, True, low_fname)
-            if error:
+            # get <count> frames
+            index = 0
+            while(index < count):
                 self.slack.send_message(
-                    'Image command completed successfully.')
-                self.slack_send_fits_file(path + fname, fname)
+                    'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    self.slack_send_fits_file(path + low_fname, low_fname)
-            else:
-                self.handle_error(command.group(0), 'Error (%s).' % error)
+                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                        'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                else:
+                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                        'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                    slack_user + '/'
+                error = self._get_image(
+                    exposure, bin, filter, path, fname, True, low_fname)
+                if error:
+                    self.slack.send_message(
+                        'Image command completed successfully.')
+                    self.slack_send_fits_file(path + fname, fname)
+                    if self.hdr:
+                        self.slack_send_fits_file(path + low_fname, low_fname)
+                else:
+                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                index = index + 1
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1482,9 +1474,9 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\image\s([0-9\.]+)\s(1|2)\s(%s)$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'regex': r'^\\image\s([0-9\.]+)\s(1|2)\s(%s)(\s[0-9]+)?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_image,
-                    'description': '`\\image <exposure (s)> <binning> <%s>` takes an image' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'description': '`\\image <exposure (s)> <binning> <%s> <count>` takes an image. <count> defaults to 1.' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'hide': False,
                     'lock': True
                 },
@@ -1673,17 +1665,17 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\dark\s([0-9\.]+)\s(1|2)$',
+                    'regex': r'^\\dark\s([0-9\.]+)\s(1|2)(\s[0-9]+)?$',
                     'function': self.get_dark,
-                    'description': '`\\dark <exposure (s)> <binning>` takes a dark frame',
+                    'description': '`\\dark <exposure (s)> <binning> <count>` takes a dark frame. <count> defaults to 1.',
                     'hide': False,
                     'lock': True
                 },
 
                 {
-                    'regex': r'^\\bias\s(1|2)$',
+                    'regex': r'^\\bias\s(1|2)(\s[0-9]+)?$',
                     'function': self.get_bias,
-                    'description': '`\\bias <binning>` takes a bias frame',
+                    'description': '`\\bias <binning> <count>` takes a bias frame. <count> defaults to 1.',
                     'hide': False,
                     'lock': True
                 },

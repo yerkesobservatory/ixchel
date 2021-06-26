@@ -52,7 +52,7 @@ class Ixchel:
             self.logger.debug(message['user'])
 
         # ignore any messages sent from this bot
-        if 'username' in message and message['username'] == self.username:
+        if 'username' in message and message['username'] == self.bot_name:
             return
         # only process commands from the self.channel
         if 'channel' in message:

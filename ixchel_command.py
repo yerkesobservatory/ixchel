@@ -861,16 +861,16 @@ class IxchelCommand:
             index = 0
             while(index < count):
                 self.slack.send_message(
-                    'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
+                    'Obtaining image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
                     fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                 else:
                     fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                 # only gets used if self.hdr == True
                 low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                 path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                     slack_user + '/'
@@ -884,7 +884,7 @@ class IxchelCommand:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
                     self.handle_error(command.group(0), 'Error (%s).' % error)
-                index = index + 1 
+                index = index + 1
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -906,16 +906,16 @@ class IxchelCommand:
             index = 0
             while(index < count):
                 self.slack.send_message(
-                    'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
+                    'Obtaining dark image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
                     fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                 else:
                     fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                 # only gets used if self.hdr == True
                 low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), 0)
+                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                 path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
                     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                     slack_user + '/'
@@ -929,7 +929,7 @@ class IxchelCommand:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
                     self.handle_error(command.group(0), 'Error (%s).' % error)
-                index = index + 1    
+                index = index + 1
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import threading
 import os
 import pathlib2
 from matplotlib.colors import LogNorm
@@ -103,7 +104,11 @@ class IxchelCommand:
                         self.slack.send_message(
                             'Please lock the telescope before calling this command.')
                         return
-                    cmd['function'](command, user)
+                    x = threading.Thread(
+                        target=cmd['function'], args=(command, user,), daemon=True)
+                    x.start()
+                    x.join()
+                    #cmd['function'](command, user)
                 except Exception as e:
                     self.handle_error(command.group(0), 'Exception (%s).' % e)
                 return

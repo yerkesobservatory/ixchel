@@ -8,6 +8,7 @@ import re
 import slack
 import asyncio
 import signal
+import threading
 from ixchel_command import IxchelCommand
 from slack_client import Slack
 from config import Config
@@ -15,7 +16,7 @@ from telescope import Telescope
 
 # logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s',
     handlers=[
         logging.FileHandler("ixchel.log"),
@@ -46,10 +47,10 @@ class Ixchel:
 
     async def parse_message(self, **payload):
         message = payload['data']
-        if 'username' in message:
-            self.logger.debug(message['username'])
-        if 'user' in message:
-            self.logger.debug(message['user'])
+        # if 'username' in message:
+        #     self.logger.debug(message['username'])
+        # if 'user' in message:
+        #     self.logger.debug(message['user'])
 
         # ignore any messages sent from this bot
         if 'username' in message and message['username'] == self.bot_name:
@@ -61,7 +62,7 @@ class Ixchel:
                 # self.slack.send_typing()
                 self.process(message)
             else:  # message posted directly to bot
-                self.logger.debug('Received direct message.')
+                self.logger.warning('Received direct message.')
                 self.slack.send_message('Please use the channel #%s for communications with %s.' % (
                     self.channel, self.bot_name), None, message['channel'], self.bot_name)
 
@@ -73,7 +74,7 @@ class Ixchel:
         if re.search(r'^\\\w+', text):
             self.ixchel_commands.parse(message)
         else:
-            self.logger.debug('Received non-command text (%s).' % text)
+            self.logger.warning('Received non-command text (%s).' % text)
 
 
 async def loop():  # main loop
@@ -112,6 +113,7 @@ tasks = asyncio.gather(ixchel.slack.rtm.start(), loop())
 signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
 loop = asyncio.get_event_loop()
+logger.info('Number of threads is %d.' % (threading.active_count()))
 try:
     loop.run_until_complete(tasks)
 except asyncio.CancelledError as e:

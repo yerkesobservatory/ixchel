@@ -53,7 +53,7 @@ class SSH:
             'pid': None
         }
         try:
-            self.logger.debug('Running background command: %s' % command)
+            self.logger.info('Running background command: %s' % command)
             stdin, stdout, stderr = self.ssh.exec_command('%s &' % command)
             stdout.channel.recv_exit_status()
             result['stdout'] = stdout.readlines()
@@ -83,7 +83,7 @@ class SSH:
         return result
 
     def command_foreground(self, command):
-        self.logger.debug(command)
+        self.logger.info(command)
         if not self.is_connected():
             self.logger.error(
                 'Foreground command (%s) failed. SSH client is not connected.' % command)
@@ -96,7 +96,7 @@ class SSH:
             'pid': None
         }
         try:
-            self.logger.debug('Running foreground command: %s' % command)
+            self.logger.info('Running foreground command: %s' % command)
             stdin, stdout, stderr = self.ssh.exec_command(command)
             stdout.channel.recv_exit_status()
             result['stdout'] = stdout.readlines()

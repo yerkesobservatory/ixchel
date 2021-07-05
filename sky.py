@@ -81,11 +81,11 @@ class SolarSystem:
             lines = output.splitlines()  # line by line
             # no matches? go home
             if re.search('No matches found', output):
-                self.logger.debug('No matches found in JPL Horizons for %s.' %
-                                  search_strings[repeat].upper())
+                self.logger.warning('No matches found in JPL Horizons for %s.' %
+                                    search_strings[repeat].upper())
             elif re.search('Target body name:', output):
-                self.logger.debug('Single match found in JPL Horizons for %s.' %
-                                  search_strings[repeat].upper().replace(suffix, ''))
+                self.logger.info('Single match found in JPL Horizons for %s.' %
+                                 search_strings[repeat].upper().replace(suffix, ''))
                 # just one match?
                 # if major body search (repeat = 0), ignore small body results
                 # if major body search, grab integer id
@@ -97,15 +97,15 @@ class SolarSystem:
                     if match:
                         objects.append(match.group(1))
                     else:
-                        self.logger.debug('Error. Could not parse id for single match major body (%s).' %
+                        self.logger.error('Error. Could not parse id for single match major body (%s).' %
                                           search_strings[repeat].upper().replace(suffix, ''))
                 else:
                     # user search term is unique, so use it!
                     objects.append(
                         search_strings[repeat].upper().replace(suffix, ''))
             elif repeat == 1 and re.search('Matching small-bodies', output):
-                self.logger.debug('Multiple small bodies found in JPL Horizons for %s.' %
-                                  search_strings[repeat].upper())
+                self.logger.info('Multiple small bodies found in JPL Horizons for %s.' %
+                                 search_strings[repeat].upper())
                 # Matching small-bodies:
                 #
                 #    Record #  Epoch-yr  Primary Desig  >MATCH NAME<
@@ -129,14 +129,14 @@ class SolarSystem:
                 match = re.search(r'(\d+) matches\.', output)
                 if match:
                     if int(match.group(1)) != match_count:
-                        self.logger.debug(
+                        self.logger.error(
                             'Multiple JPL small body parsing error!')
                     else:
-                        self.logger.debug(
+                        self.logger.info(
                             'Multiple JPL small body parsing successful!')
             elif repeat == 0 and re.search('Multiple major-bodies', output):
-                self.logger.debug('Multiple major bodies found in JPL Horizons for %s.' %
-                                  search_strings[repeat].upper())
+                self.logger.info('Multiple major bodies found in JPL Horizons for %s.' %
+                                 search_strings[repeat].upper())
                 # Multiple major-bodies match string "50*"
                 #
                 #  ID#      Name                               Designation  IAU/aliases/other
@@ -163,16 +163,15 @@ class SolarSystem:
                 match = re.search(r'Number of matches =([\s\d]+).', output)
                 if match:
                     if int(match.group(1)) != match_count:
-                        self.logger.debug(
+                        self.logger.error(
                             'Multiple JPL major body parsing error!')
                     else:
-                        self.logger.debug(
+                        self.logger.info(
                             'Multiple JPL major body parsing successful!')
         # calculate RA/DEC
         start = datetime.datetime.utcnow()
         end = start+datetime.timedelta(seconds=60)
         for obj in objects:
-            self.logger.debug(obj.upper())
             try:
                 result = ch.query(obj.upper(), smallbody=False)
                 result.set_epochrange(start.strftime(
@@ -304,7 +303,7 @@ class Satellite:
             'telescope', 'latitude', '0.0'), '%s' % self.config.get('telescope', 'longitude', '0.0')
 
     def buildSatelliteDatabase(self):
-        self.logger.debug('Loading satellite TLE into database...')
+        self.logger.info('Loading satellite TLE into database...')
         norad_sats_urls = self.config.get('misc', 'norad_sat_urls').split('\n')
         db = []
         for url in norad_sats_urls:
@@ -328,7 +327,7 @@ class Satellite:
                     for i in range(0, len(sats)-2, 3)]
             # add sats to norad database
             db += sats
-        self.logger.debug(
+        self.logger.info(
             'Loaded %d satellite TLE(s) into the database.' % len(db))
         return db
 

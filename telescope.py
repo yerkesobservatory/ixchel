@@ -266,6 +266,12 @@ class Telescope:
     def center_dome(self, interface):
         self.setter(interface)
 
+    def home_domer(self, interface):
+        self.getter(interface)
+
+    def home_domel(self, interface):
+        self.getter(interface)
+
     def get_slit(self, interface):
         self.getter(interface)
 

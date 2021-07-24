@@ -133,7 +133,7 @@ telescope_interfaces = {
             'az_hit': {
                 'regex': r'(?<=az_hit=).*?(?= )',
                 'value': None,
-                'type': int
+                'type': float
             },
             'rem': {
                 'regex': r'(?<=rem=).*?$',
@@ -149,7 +149,7 @@ telescope_interfaces = {
             'az_hit': {
                 'regex': r'(?<=az_hit=).*?(?= )',
                 'value': None,
-                'type': int
+                'type': float
             },
             'rem': {
                 'regex': r'(?<=rem=).*?$',

@@ -818,7 +818,7 @@ class TelescopeInterface:
                 self.set_output_value(key, match.group(0))
             else:
                 if self.is_output_optional(key):
-                    self.logger.debug(
+                    self.logger.warning(
                         '%s value is missing (but optional).' % key)
                 else:
                     self.logger.error(

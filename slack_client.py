@@ -89,7 +89,7 @@ class Slack:
                 username=username,
                 attachments=attachments
             )
-            self.logger.debug('Sent Slack message: %s.' % message)
+            self.logger.info('Sent Slack message: %s.' % message)
         except Exception as e:
             self.logger.error(
                 'Could not send message (%s). Exception (%s).' % (message, e))
@@ -136,8 +136,8 @@ class Slack:
         for ch in self.get_channels():
             if 'name' in ch and ch['name'] == channel:
                 channel_id = ch['id']
-                self.logger.debug('Channel (%s) id is %s.' %
-                                  (channel, channel_id))
+                self.logger.info('Channel (%s) id is %s.' %
+                                 (channel, channel_id))
                 break
         return channel_id
 

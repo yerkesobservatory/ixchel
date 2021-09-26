@@ -73,10 +73,11 @@ class IxchelCommand:
         self.telescope = ixchel.telescope
         self.image_dir = self.config.get(
             'telescope', 'image_dir')
-        # states to save
+        # session states to save
         self.hdr = False
         self.share = False
         self.target = 'unknown'
+        self.preview = True
         # build list of backslash commands
         self.init_commands()
         # init the Sky interface
@@ -84,6 +85,12 @@ class IxchelCommand:
         self.celestial = Celestial(ixchel)
         self.solarSystem = SolarSystem(ixchel)
         self.coordinate = Coordinate(ixchel)
+
+    def resetSession(self):
+        self.hdr = False
+        self.share = False
+        self.target = 'unknown'
+        self.preview = True
 
     def set_target(self, target='unknown'):
         self.target = target.strip().lower()  # lower case
@@ -96,7 +103,7 @@ class IxchelCommand:
             command = re.search(cmd['regex'], text, re.IGNORECASE)
             if command:
                 user = self.slack.get_user_by_id(message.get('user'))
-                self.logger.debug('Received the command: %s from %s.' % (
+                self.logger.info('Received the command: %s from %s.' % (
                     command.group(0), user.get('name')))
                 try:
                     if 'lock' in cmd and cmd['lock'] == True and not self.is_locked_by(user) and not self.share:
@@ -272,8 +279,8 @@ class IxchelCommand:
         # change filter to 'filter_for_pinpoint' if not already set
         if(original_filter != filter):
             result = self._set_filter(filter)
-            self.logger.debug('Filter changed from %s to %s.' %
-                              (original_filter, result))
+            self.logger.info('Filter changed from %s to %s.' %
+                             (original_filter, result))
 
         # turn off HDR mode
         hdr = self.hdr
@@ -318,7 +325,7 @@ class IxchelCommand:
                 # change filter back to original_filter
                 if(original_filter != filter):
                     result = self._set_filter(filter)
-                    self.logger.debug('Filter changed from %s to %s.' % (
+                    self.logger.info('Filter changed from %s to %s.' % (
                         original_filter, result))
                 return True
             elif(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <= max_dec_offset):
@@ -335,7 +342,7 @@ class IxchelCommand:
                 # change filter back to original_filter
                 if(original_filter != filter):
                     result = self._set_filter(filter)
-                    self.logger.debug('Filter changed from %s to %s.' % (
+                    self.logger.info('Filter changed from %s to %s.' % (
                         original_filter, result))
                 return False
 
@@ -347,8 +354,8 @@ class IxchelCommand:
         # change filter back to original_filter
         if(original_filter != filter):
             result = self._set_filter(filter)
-            self.logger.debug('Filter changed from %s to %s.' %
-                              (original_filter, result))
+            self.logger.info('Filter changed from %s to %s.' %
+                             (original_filter, result))
 
         return False
 
@@ -637,6 +644,26 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def get_preview(self, command, user):
+        try:
+            if (self.preview):
+                self.slack.send_message('FITS preview is on.')
+            else:
+                self.slack.send_message('FITS preview is off.')
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def set_preview(self, command, user):
+        try:
+            on_off = command.group(1)
+            if (on_off == 'on'):
+                self.preview = True
+            else:
+                self.preview = False
+            self.get_preview(command, user)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def get_hdr(self, command, user):
         try:
             if (self.hdr):
@@ -804,6 +831,9 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
     def slack_send_fits_file(self, fits_file, comment):
+        if self.preview == False:
+            self.logger.info("FITS preview in Slack is OFF.")
+            return
         try:
             telescope_interface = TelescopeInterface('convert_fits_to_jpg')
             telescope_interface.set_input_value('fits_file', fits_file)
@@ -815,7 +845,6 @@ class IxchelCommand:
             success = self.telescope.get_file(self.config.get(
                 'telescope', 'convert_jpg_remote_file_path'), self.config.get('telescope', 'convert_jpg_local_file_path'))
             if success:
-                self.logger.debug('Convert the fits file to an image!')
                 self.slack.send_file(self.config.get(
                     'telescope', 'convert_jpg_local_file_path'), comment)
             else:
@@ -1009,6 +1038,7 @@ class IxchelCommand:
             welcome_message = self.config.get('slack', 'welcome_message').format(
                 bot_name=self.bot_name, user=slack_user)
             self.slack.send_message(welcome_message)
+            self.resetSession()
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1028,6 +1058,7 @@ class IxchelCommand:
             # send output to Slack
             self.slack.send_message(
                 'Telescope is unlocked.')
+            self.resetSession()
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1087,7 +1118,7 @@ class IxchelCommand:
             self.telescope.get_lock(telescope_interface)
             # assign values
             _user = telescope_interface.get_output_value('user')
-            self.logger.debug(
+            self.logger.info(
                 'Telescope is locked by %s.' % _user)
             # assign values
             return self.slack.get_user_by_id(_user).get('name', _user)
@@ -1103,7 +1134,7 @@ class IxchelCommand:
             self.telescope.get_lock(telescope_interface)
             # assign values
             _user = telescope_interface.get_output_value('user')
-            self.logger.debug(
+            self.logger.info(
                 'Telescope is locked by %s.' % _user)
             # assign values
             return _user == user['id']
@@ -1119,7 +1150,7 @@ class IxchelCommand:
             self.telescope.get_lock(telescope_interface)
             # assign values
             _user = telescope_interface.get_output_value('user')
-            self.logger.debug(
+            self.logger.info(
                 'Telescope is locked by %s.' % _user)
             # assign values
             return _user is not None
@@ -1259,92 +1290,6 @@ class IxchelCommand:
             self.handle_error(command.group(
                 0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
 
-    # # https://openweathermap.org/weather-conditions
-    # def get_weather(self, command, user):
-    #     base_url = self.config.get('openweathermap', 'base_url')
-    #     icon_base_url = self.config.get('openweathermap', 'icon_base_url')
-    #     api_key = self.config.get('openweathermap', 'api_key')
-    #     latitude = self.config.get('telescope', 'latitude')
-    #     longitude = self.config.get('telescope', 'longitude')
-    #     # user the OpenWeatherMap API
-    #     url = '%sweather?lat=%s&lon=%s&units=imperial&APPID=%s' % (
-    #         base_url, latitude, longitude, api_key)
-    #     try:
-    #         r = requests.post(url)
-    #     except Exception as e:
-    #         self.logger.error(
-    #             'OpenWeatherMap API request (%s) failed.' % url)
-    #         self.handle_error(command.group(0), 'Exception (%s).'%e)
-    #         return
-    #     if r.ok:
-    #         data = r.json()
-    #         station = data.get('name', 'Unknown')
-    #         clouds = data.get('clouds').get('all', 0)
-    #         conditions = data.get('weather')[0].get('main', 'Unknown')
-    #         temp = data.get('main').get('temp', 0)
-    #         wind_speed = data.get('wind').get('speed', 0)
-    #         wind_direction = data.get('wind').get('deg', 0)
-    #         humidity = data.get('main').get('humidity', 0)
-    #         icon_url = icon_base_url + \
-    #             data.get('weather')[0].get('icon', '01d') + '.png'
-    #         # send weather report to Slack
-    #         self.slack.send_message(
-    #             "", [{"image_url": "%s" % icon_url, "title": "Current Weather:"}])
-    #         self.slack.send_message('>Station: %s' % station)
-    #         self.slack.send_message('>Conditions: %s' % conditions)
-    #         self.slack.send_message(
-    #             '>Temperature: %.1f° F' % temp)
-    #         self.slack.send_message('>Clouds: %0.1f%%' % clouds)
-    #         self.slack.send_message('>Wind Speed: %.1f mph' % wind_speed)
-    #         self.slack.send_message(
-    #             '>Wind Direction: %.1f°' % wind_direction)
-    #         self.slack.send_message(
-    #             '>Humidity: %.1f%%' % humidity)
-    #     else:
-    #         self.logger.error(
-    #             'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
-    #         self.handle_error(command.group(0), 'Exception (%s).'%e)
-
-    # # https://api.weatherbit.io/v2.0/
-    # def get_forecast(self, command, user):
-    #     base_url = self.config.get('weatherbit', 'base_url')
-    #     icon_base_url = self.config.get('weatherbit', 'icon_base_url')
-    #     api_key = self.config.get('weatherbit', 'api_key')
-    #     max_forecasts = int(self.config.get(
-    #         'weatherbit', 'max_forecasts', 5))
-    #     latitude = self.config.get('telescope', 'latitude')
-    #     longitude = self.config.get('telescope', 'longitude')
-    #     timezone = self.config.get('telescope', 'timezone', 'GMT')
-    #     # user the weatherbit API
-    #     url = '%sforecast/hourly?lat=%s&lon=%s&units=I&key=%s' % (base_url, latitude, longitude, api_key)
-    #     try:
-    #         r = requests.post(url)
-    #         if r.ok:
-    #             data = r.json()
-    #             forecasts = data.get('data')
-    #             station = data.get('city_name')
-    #             self.slack.send_message('Weather Forecast:')
-    #             self.slack.send_message('>Station: %s' % station)
-    #             for forecast in forecasts[:max_forecasts]:
-    #                 dt = datetime.datetime.strptime(forecast.get('timestamp_utc', '1970-01-01T00:00:00'), "%Y-%m-%dT%H:%M:%S").replace(tzinfo=pytz.utc)
-    #                 dt_local = dt.astimezone(pytz.timezone(timezone))
-    #                 icon_url = icon_base_url + forecast.get('weather').get('icon') + '.png'
-    #                 weather = forecast.get('weather').get('description')
-    #                 clouds = int(forecast.get('clouds'))
-    #                 dt_string = '%s (%s)' % (dt_local.strftime(
-    #                     '%I:%M%p'), dt.strftime('%I:%M%p UTC'))
-    #                 if clouds > 0:
-    #                     self.slack.send_message(
-    #                         "", [{"image_url": "%s" % icon_url, "title": "%s (%d%%) @ %s" % (weather, clouds, dt_string)}])
-    #                 else:
-    #                     self.slack.send_message(
-    #                         "", [{"image_url": "%s" % icon_url, "title": "%s @ %s" % (weather, dt_string)}])
-    #                 time.sleep(1)  # don't trigger the Slack bandwidth threshold
-    #         else:
-    #             self.handle_error(command.group(0), 'Weatherbit API request (%s) failed (%d).' % (url, r.status_code))
-    #     except Exception as e:
-    #         self.handle_error(command.group(0), 'Weatherbit API request (%s) failed. Exception (%s).' % (url, e))
-
     # https://openweathermap.org/forecast5
     def get_forecast(self, command, user):
         base_url = self.config.get('openweathermap', 'base_url')
@@ -1398,7 +1343,6 @@ class IxchelCommand:
 
     def init_commands(self):
         try:
-            # self.logger.debug(r'^\\image\s([0-9]+)\s(1|2)\s(%s)$'%'|'.join(self.config.get('telescope', 'filters').split('\n')))
             self.commands = [
                 {
                     'regex': r'^\\find\s(.+)$',
@@ -1638,6 +1582,21 @@ class IxchelCommand:
                     'regex': r'^\\hdr\s(on|off)$',
                     'function': self.set_hdr,
                     'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode',
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\preview$',
+                    'function': self.get_preview,
+                    'description': '`\\preview` shows the status of the FITS image preview',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\preview\s(on|off)$',
+                    'function': self.set_preview,
+                    'description': '`\\preview <on|off>` enables/disables the FITS image preview',
                     'hide': False,
                     'lock': True
                 },

@@ -35,6 +35,8 @@ class Ixchel:
         self.logger = logging.getLogger('Ixchel')
         # init config
         self.config = config
+        # init loc
+        self.lock = threading.Lock()
         # init Slack interface
         self.slack = Slack(self)
         # the telescope

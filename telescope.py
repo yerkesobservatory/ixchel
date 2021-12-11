@@ -11,6 +11,7 @@ class SSH:
         self.logger = logging.getLogger('SSH')
         self.ixchel = ixchel
         self.config = ixchel.config
+        self.lock = ixchel.lock
         self.server = self.config.get('ssh', 'server')
         self.username = self.config.get('ssh', 'username')
         self.key_path = self.config.get('ssh', 'key_path')

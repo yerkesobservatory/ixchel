@@ -78,6 +78,7 @@ class IxchelCommand:
         self.logger = logging.getLogger('IxchelCommand')
         self.ixchel = ixchel
         self.config = ixchel.config
+        self.lock = ixchel.lock
         self.channel = self.config.get('slack', 'channel_name')
         self.bot_name = self.config.get('slack', 'bot_name')
         self.slack = ixchel.slack
@@ -117,6 +118,14 @@ class IxchelCommand:
                     # is this an abort command?
                     if cmd['function'] == self.abort:
                         self.slack.send_message('Received abort command!')
+                        self.lock.acquire()
+                        try:
+                            self.logger.error(
+                                "Locked the doAbort flag for writing.")
+                            doAbort = True
+                        finally:
+                            self.logger.error("Released the doAbort flag.")
+                            self.lock.release()
                         # threading.Lock().acquire()
                         # doAbort = True
                         # threading.Lock().release()

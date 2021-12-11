@@ -115,28 +115,26 @@ class IxchelCommand:
                         self.slack.send_message(
                             'Please lock the telescope before calling this command.')
                         return
-                    # is this an abort command?
-                    if cmd['function'] == self.abort:
-                        self.slack.send_message('Received abort command!')
-                        self.lock.acquire()
-                        try:
-                            self.logger.error(
-                                "Locked the doAbort flag for writing.")
-                            doAbort = True
-                        finally:
-                            self.logger.error("Released the doAbort flag.")
-                            self.lock.release()
-                        # threading.Lock().acquire()
-                        # doAbort = True
-                        # threading.Lock().release()
-                        # self.slack.send_message('Received abort command.')
-                        return
+                    # clean up threads
                     self.threads = [
                         t for t in self.threads if t.thread.is_alive()]
-                    if len(self.threads) > 0:
+                    # is this an abort command?
+                    if cmd['function'] == self.abort:
+                        # are there any threads to abort?
+                        if len(self.threads) <= 0:
+                            self.slack.send_message(
+                                'No running commands to abort.')
+                            self.setDoAbort(False)
+                            return
+                        self.slack.send_message(
+                            'Aborting current command (%s). Please wait...' % (self.threads[0].command))
+                        self.setDoAbort(True) # signal the abort
+                        return    
+                    if len(self.threads) > 0: #not an /abort, but there is another command running
                         self.slack.send_message(
                             'Please wait for the current command (%s) to complete.' % (self.threads[0].command))
                         return
+                    # run this command in a thread
                     thread = threading.Thread(
                         target=cmd['function'], args=(command, user,), daemon=True)
                     commandThread = CommandThread(
@@ -1355,6 +1353,23 @@ class IxchelCommand:
             self.logger.error(
                 'OpenWeatherMap API request (%s) failed (%d).' % (url, r.status_code))
             self.handle_error(command.group(0), e)
+
+    def getDoAbort(self):
+        _doAbort = False
+        self.lock.acquire()
+        try:
+            _doAbort = doAbort
+        finally:
+            self.lock.release()
+        return _doAbort
+
+    def setDoAbort(self, _doAbort):
+        self.lock.acquire()
+        try:
+            doAbort = _doAbort
+        finally:
+            self.lock.release()
+        return
 
     def init_commands(self):
         try:

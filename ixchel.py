@@ -9,6 +9,7 @@ import slack
 import asyncio
 import signal
 import threading
+from globals import doAbort
 from ixchel_command import IxchelCommand
 from slack_client import Slack
 from config import Config
@@ -114,6 +115,7 @@ signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
 loop = asyncio.get_event_loop()
 logger.info('Number of threads is %d.' % (threading.active_count()))
+logger.info(doAbort)
 try:
     loop.run_until_complete(tasks)
 except asyncio.CancelledError as e:

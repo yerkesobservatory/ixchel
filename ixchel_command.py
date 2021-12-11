@@ -11,6 +11,7 @@ import requests
 import time
 import datetime
 import pytz
+from globals import doAbort
 from telescope_interface import TelescopeInterface
 from astropy.coordinates import SkyCoord, Angle, AltAz
 import astropy.units as u
@@ -112,6 +113,14 @@ class IxchelCommand:
                     if 'lock' in cmd and cmd['lock'] == True and not self.is_locked_by(user) and not self.share:
                         self.slack.send_message(
                             'Please lock the telescope before calling this command.')
+                        return
+                    # is this an abort command?
+                    if cmd['function'] == self.abort:
+                        self.slack.send_message('Received abort command!')
+                        # threading.Lock().acquire()
+                        # doAbort = True
+                        # threading.Lock().release()
+                        # self.slack.send_message('Received abort command.')
                         return
                     self.threads = [
                         t for t in self.threads if t.thread.is_alive()]
@@ -599,6 +608,13 @@ class IxchelCommand:
             # send output to Slack
             self.slack.send_message(
                 'The dome slit is centered (az=%s°).' % az.strip())
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def abort(self, command, user):
+        try:
+            self.slack.send_message(
+                'Aborting current task. Please wait...')
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1655,6 +1671,14 @@ class IxchelCommand:
                     'regex': r'^\\home\sdome$',
                     'function': self.home_dome,
                     'description': '`\\home dome` calibrates the dome movement',
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\abort$',
+                    'function': self.abort,
+                    'description': '`\\abort` terminates the current task',
                     'hide': False,
                     'lock': True
                 }

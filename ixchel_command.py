@@ -123,14 +123,14 @@ class IxchelCommand:
                         # are there any threads to abort?
                         if len(self.threads) <= 0:
                             self.slack.send_message(
-                                'No running commands to abort.')
+                                'No commands to abort.')
                             self.setDoAbort(False)
                             return
                         self.slack.send_message(
                             'Aborting current command (%s). Please wait...' % (self.threads[0].command))
-                        self.setDoAbort(True) # signal the abort
-                        return    
-                    if len(self.threads) > 0: #not an /abort, but there is another command running
+                        self.setDoAbort(True)  # signal the abort
+                        return
+                    if len(self.threads) > 0:  # not an /abort, but there is another command running
                         self.slack.send_message(
                             'Please wait for the current command (%s) to complete.' % (self.threads[0].command))
                         return
@@ -510,20 +510,6 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    # def convert_fits_to_image(self, command, fits_file):
-    #     try:
-    #         image_file = get_pkg_data_filename(fits_file)
-    #         # fits.info(image_file)
-    #         image_data = fits.getdata(image_file, ext=0)
-    #         plt.figure()
-    #         plt.imshow(image_data, cmap='gray', norm=LogNorm())
-    #         plot_png_file_path = fits_file + '.png'
-    #         plt.savefig(plot_png_file_path, bbox_inches='tight', format='png')
-    #         plt.close()
-    #         self.ixchel.slack.send_file(plot_png_file_path, '')
-    #     except Exception as e:
-    #         self.handle_error(command.group(0), 'Exception (%s).' % e)
-
     def get_help(self, command, user):
         slack_user = self.slack.get_user_by_id(
             user['id']).get('name', user['id'])
@@ -620,8 +606,7 @@ class IxchelCommand:
 
     def abort(self, command, user):
         try:
-            self.slack.send_message(
-                'Aborting current task. Please wait...')
+            self.logger.debug("You should never get here.")
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -895,15 +880,20 @@ class IxchelCommand:
             count = 1
             if command.group(4) is not None:
                 count = int(command.group(4))
-                if count > int(self.config.get('telescope', 'max_image_count')):
-                    self.slack.send_message(
-                        'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
-                    return
+                # if count > int(self.config.get('telescope', 'max_image_count')):
+                #     self.slack.send_message(
+                #         'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
+                #     return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
             # get <count> frames
             index = 0
             while(index < count):
+                # check for abort
+                if self.getDoAbort():
+                    self.slack.send_message('Image sequence aborted.')
+                    self.setDoAbort(False)
+                    return
                 self.slack.send_message(
                     'Obtaining image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
@@ -940,15 +930,20 @@ class IxchelCommand:
             count = 1
             if command.group(3) is not None:
                 count = int(command.group(3))
-                if count > int(self.config.get('telescope', 'max_image_count')):
-                    self.slack.send_message(
-                        'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
-                    return
+                # if count > int(self.config.get('telescope', 'max_image_count')):
+                #     self.slack.send_message(
+                #         'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
+                #     return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
             # get <count> frames
             index = 0
             while(index < count):
+                # check for abort
+                if self.getDoAbort():
+                    self.slack.send_message('Image sequence aborted.')
+                    self.setDoAbort(False)
+                    return
                 self.slack.send_message(
                     'Obtaining dark image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
@@ -985,15 +980,20 @@ class IxchelCommand:
             count = 1
             if command.group(2) is not None:
                 count = int(command.group(2))
-                if count > int(self.config.get('telescope', 'max_image_count')):
-                    self.slack.send_message(
-                        'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
-                    return
+                # if count > int(self.config.get('telescope', 'max_image_count')):
+                #     self.slack.send_message(
+                #         'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
+                #     return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
             # get <count> frames
             index = 0
             while(index < count):
+                # check for abort
+                if self.getDoAbort():
+                    self.slack.send_message('Image sequence aborted.')
+                    self.setDoAbort(False)
+                    return
                 self.slack.send_message(
                     'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
@@ -1355,6 +1355,7 @@ class IxchelCommand:
             self.handle_error(command.group(0), e)
 
     def getDoAbort(self):
+        global doAbort
         _doAbort = False
         self.lock.acquire()
         try:
@@ -1364,6 +1365,7 @@ class IxchelCommand:
         return _doAbort
 
     def setDoAbort(self, _doAbort):
+        global doAbort
         self.lock.acquire()
         try:
             doAbort = _doAbort

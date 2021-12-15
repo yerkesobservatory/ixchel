@@ -116,8 +116,6 @@ tasks = asyncio.gather(ixchel.slack.rtm.start(), loop())
 signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
 loop = asyncio.get_event_loop()
-logger.info('Number of threads is %d.' % (threading.active_count()))
-logger.info(doAbort)
 try:
     loop.run_until_complete(tasks)
 except asyncio.CancelledError as e:

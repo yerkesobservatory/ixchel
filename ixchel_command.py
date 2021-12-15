@@ -880,10 +880,6 @@ class IxchelCommand:
             count = 1
             if command.group(4) is not None:
                 count = int(command.group(4))
-                # if count > int(self.config.get('telescope', 'max_image_count')):
-                #     self.slack.send_message(
-                #         'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
-                #     return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
             # get <count> frames
@@ -930,10 +926,6 @@ class IxchelCommand:
             count = 1
             if command.group(3) is not None:
                 count = int(command.group(3))
-                # if count > int(self.config.get('telescope', 'max_image_count')):
-                #     self.slack.send_message(
-                #         'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
-                #     return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
             # get <count> frames
@@ -980,10 +972,6 @@ class IxchelCommand:
             count = 1
             if command.group(2) is not None:
                 count = int(command.group(2))
-                # if count > int(self.config.get('telescope', 'max_image_count')):
-                #     self.slack.send_message(
-                #         'Error. Maximum <count> value is %s.' % (self.config.get('telescope', 'max_image_count')))
-                #     return
             slack_user = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
             # get <count> frames

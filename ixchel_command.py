@@ -826,9 +826,9 @@ class IxchelCommand:
             # query telescope
             self.telescope.get_precipitation(telescope_interface)
             # assign values
-            pos = telescope_interface.get_output_value('pos')
+            _pos = telescope_interface.get_output_value('pos')
             # send output to Slack
-            self.slack.send_message('Focus position is %d.' % pos)
+            self.slack.send_message('Focus position is %d.' % _pos)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -850,13 +850,13 @@ class IxchelCommand:
         try:
             telescope_interface = TelescopeInterface('set_focus')
             # assign values
-            pos = int(command.group(1))
-            telescope_interface.set_input_value('pos', pos)
+            _pos = int(command.group(1))
+            telescope_interface.set_input_value('pos', _pos)
             # create a command that applies the specified values
             self.telescope.set_focus(telescope_interface)
             # send output to Slack
-            pos = telescope_interface.get_output_value('pos')
-            self.slack.send_message('Focus position is %d.' % pos)
+            _pos = telescope_interface.get_output_value('pos')
+            self.slack.send_message('Focus position is %d.' % _pos)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 

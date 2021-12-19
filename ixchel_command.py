@@ -824,7 +824,7 @@ class IxchelCommand:
         try:
             telescope_interface = TelescopeInterface('get_focus')
             # query telescope
-            self.telescope.get_precipitation(telescope_interface)
+            self.telescope.get_focus(telescope_interface)
             # assign values
             pos = telescope_interface.get_output_value('pos')
             # send output to Slack
@@ -1248,13 +1248,23 @@ class IxchelCommand:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
     def hocus(self, command, user):
-        # get reference stars
         try:
+            # # ensure slit is open
+            # telescope_interface = TelescopeInterface('get_slit')
+            # self.telescope.get_slit(telescope_interface)  # query telescope
+            # open_close = telescope_interface.get_output_value(
+            #     'open_close')  # assign values
+            # if open_close != 'open':
+            #     self.slack.send_message(
+            #         'The observatory is not open. Run `\crack` first.')
+            #     return
+            # identify target from reference stars
             telescope = self.ixchel.telescope.earthLocation
             telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
             max_alt = -91.0
-            target = () # hocusfocus target based on max altaz
-            reference_stars = self.config.get('hocusfocus', 'reference_stars').split('\n')
+            target = ()  # hocusfocus target based on max altaz
+            reference_stars = self.config.get(
+                'hocusfocus', 'reference_stars').split('\n')
             for reference_star in reference_stars:
                 (name, ra, dec) = reference_star.split('|', 3)
                 # create SkyCoord instance from RA and DEC
@@ -1266,9 +1276,29 @@ class IxchelCommand:
                 if(altaz.alt.degree > max_alt):
                     max_alt = altaz.alt.degree
                     target = (name, ra, dec)
-            self.logger.info("The target star is %s."%target[0])    
+            self.logger.info("The target star is %s (alt=%f deg)." %
+                             (target[0], max_alt))
+
+            # get current focus setting
+            telescope_interface = TelescopeInterface('get_focus')
+            # query telescope
+            self.telescope.get_focus(telescope_interface)
+            # assign values
+            focus_pos_original = telescope_interface.get_output_value('pos')
+            self.logger.info("The current focus position is %d." %
+                             focus_pos_original)
+
+            # main focus loop
+            focus_pos_start = int(self.config.get(
+                'hocusfocus', 'focus_pos_start'))
+            focus_pos_end = int(self.config.get('hocusfocus', 'focus_pos_end'))
+            focus_pos_increment = int(self.config.get(
+                'hocusfocus', 'focus_pos_increment'))
+            for focus_pos in range(focus_pos_start, focus_pos_end + focus_pos_increment, focus_pos_increment):
+                self.logger.info("Setting focus to %d." % focus_pos)
+
         except Exception as e:
-            self.handle_error(command.group(0), 'Exception (%s).' % (e))        
+            self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
     def to_stars(self, command, user):
         # get sky image from SEO camera

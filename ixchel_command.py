@@ -1247,6 +1247,29 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
+    def hocus(self, command, user):
+        # get reference stars
+        try:
+            telescope = self.ixchel.telescope.earthLocation
+            telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
+            max_alt = -91.0
+            target = () # hocusfocus target based on max altaz
+            reference_stars = self.config.get('hocusfocus', 'reference_stars').split('\n')
+            for reference_star in reference_stars:
+                (name, ra, dec) = reference_star.split('|', 3)
+                # create SkyCoord instance from RA and DEC
+                c = SkyCoord(ra, dec, unit=(u.hour, u.deg))
+                # transform RA,DEC to alt, az for this object from the observatory
+                altaz = c.transform_to(
+                    AltAz(obstime=telescope_now, location=telescope))
+                # track the reference star with max alt
+                if(altaz.alt.degree > max_alt):
+                    max_alt = altaz.alt.degree
+                    target = (name, ra, dec)
+            self.logger.info("The target star is %s."%target[0])    
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % (e))        
+
     def to_stars(self, command, user):
         # get sky image from SEO camera
         try:
@@ -1740,6 +1763,14 @@ class IxchelCommand:
                     'regex': r'^\\abort$',
                     'function': self.abort,
                     'description': '`\\abort` terminates the current task',
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\hocus$',
+                    'function': self.hocus,
+                    'description': '`\\hocus` calibrates the focus setting',
                     'hide': False,
                     'lock': True
                 }

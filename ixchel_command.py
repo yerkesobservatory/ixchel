@@ -277,11 +277,12 @@ class IxchelCommand:
         user = self.slack.get_user_by_id(_user['id']).get('name', _user['id'])
 
         # name and path for pinpoint images
-        fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-            'pinpoint', filter, time, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), user.lower(), 0)
-        path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-            '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-            user + '/'
+        fname = self.get_fitsFname(
+            'pinpoint', filter, time, bin, user.lower(), 0, '')
+        # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+        #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+        #     user + '/'
+        path = self.get_fitsPath(user.lower())
 
         ra_target = Angle(ra.replace(' ', ':'), unit=u.hour).degree
         dec_target = Angle(dec.replace(' ', ':'), unit=u.deg).degree
@@ -939,17 +940,24 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Obtaining image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        self.target, filter, exposure, bin, slack_user, index, 'H')
                 else:
-                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        self.target, filter, exposure, bin, slack_user, index, '')
                 # only gets used if self.hdr == True
-                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                    slack_user + '/'
+                # low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d.gz' % (
+                #     self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                low_fname = self.get_fitsFname(
+                    self.target, filter, exposure, bin, slack_user, index, 'L')
+                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                #     slack_user + '/'
+                path = self.get_fitsPath(slack_user)
                 error = self._get_image(
                     exposure, bin, filter, path, fname, False, low_fname)
                 if error:
@@ -985,17 +993,24 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Obtaining dark image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        'dark', filter, exposure, bin, slack_user, index, 'H')
                 else:
-                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        'dark', filter, exposure, bin, slack_user, index, '')
                 # only gets used if self.hdr == True
-                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                    slack_user + '/'
+                # low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
+                #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                low_fname = self.get_fitsFname(
+                    'dark', filter, exposure, bin, slack_user, index, 'L')
+                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                #     slack_user + '/'
+                path = self.get_fitsPath(slack_user)
                 error = self._get_image(
                     exposure, bin, filter, path, fname, True, low_fname)
                 if error:
@@ -1031,16 +1046,23 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        'bias', filter, exposure, bin, slack_user, index, 'H')
                 else:
-                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                    slack_user + '/'
+                    # fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        'bias', filter, exposure, bin, slack_user, index, '')
+                # low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
+                #     'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                low_fname = self.get_fitsFname(
+                    'bias', filter, exposure, bin, slack_user, index, 'L')
+                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                #     slack_user + '/'
+                path = self.get_fitsPath(slack_user)
                 error = self._get_image(
                     exposure, bin, filter, path, fname, True, low_fname)
                 if error:
@@ -1485,6 +1507,17 @@ class IxchelCommand:
         finally:
             self.lock.release()
         return
+
+    def get_fitsFname(self, target, filter, time, bin, user, index, hdr):
+        fname = '%s_%s_%ss_bin%s%s_%s_%s_seo_%d_RAW.fits' % (
+            target, filter, time, bin, hdr, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), user.lower(), index)
+        return fname
+
+    def get_fitsPath(self, user):
+        path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+            '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+            user.lower() + '/'
+        return path
 
     def init_commands(self):
         try:

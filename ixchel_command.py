@@ -253,7 +253,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def _pinpoint(self, command, _user, ra, dec):
+    def _pinpoint(self, _user, ra, dec):
         # astrometry parameters
         solve_field_path = self.config.get(
             'pinpoint', 'solve_field_path', '/home/chultun/astrometry/bin/solve-field')
@@ -329,11 +329,12 @@ class IxchelCommand:
         while(iteration < max_tries):
             self.slack.send_message(
                 'Obtaining intermediate image (#%d) for pinpoint astrometry...' % (iteration+1))
-            error = self._get_image(time, bin, filter, path, fname)
-            if error:
+            success = self._get_image(time, bin, filter, path, fname)
+            if success:
                 self.slack_send_fits_file(path + fname, fname)
             else:
-                self.handle_error(command.group(0), 'Error (%s).' % error)
+                self.logger.error('Error. Image command failed (%s).' % fname)
+                return False
 
             telescope_interface = TelescopeInterface('pinpoint')
             # assign values
@@ -414,8 +415,7 @@ class IxchelCommand:
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
                 self.config.get('slack', 'bot_name'), skyObject.name))
-            success = self._pinpoint(
-                command, user, skyObject.ra, skyObject.dec)
+            success = self._pinpoint(user, skyObject.ra, skyObject.dec)
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to %s.' % skyObject.name)
@@ -433,8 +433,7 @@ class IxchelCommand:
             dec = command.group(2).strip()
             self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
                                     (self.config.get('slack', 'bot_name'), ra, dec))
-            success = self._pinpoint(
-                command, user, ra, dec)
+            success = self._pinpoint(user, ra, dec)
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
@@ -1266,6 +1265,12 @@ class IxchelCommand:
 
     def hocus(self, command, user):
         try:
+            # image settings
+            time = self.config.get('hocusfocus', 'time', 30)
+            bin = self.config.get('hocusfocus', 'bin', 1)
+            filter = self.config.get('hocusfocus', 'filter', 'clear')
+            username = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
             # identify target from reference stars
             telescope = self.ixchel.telescope.earthLocation
             telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
@@ -1299,9 +1304,35 @@ class IxchelCommand:
             focus_pos_increment = int(self.config.get(
                 'hocusfocus', 'focus_pos_increment'))
             for focus_pos in range(focus_pos_start, focus_pos_end + focus_pos_increment, focus_pos_increment):
+                # set focus setting
                 self.slack.send_message(
                     'Setting focus position to %d...' % focus_pos)
                 focus_pos = self._set_focus(focus_pos)
+
+                # # pinpoint to the target. this could get touchy if focus is too far out!
+                # self.slack.send_message(
+                #     'Pinpointing the telescope to %s. Please wait...' % target[0])
+                # success = self._pinpoint(user, target[1], target[2])
+                # if success:
+                #     self.slack.send_message(
+                #         'Telescope successfully pinpointed to %s.' % target[0])
+                # else:
+                #     self.slack.send_message(
+                #         'Telescope failed to pinpoint to %s.' % target[0])
+
+                # get image
+                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
+                    'hocusfocus', filter, time, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), username.lower(), 0)
+                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                    username.lower() + '/'
+                success = self._get_image(time, bin, filter, path, fname)
+                if success:
+                    self.slack_send_fits_file(path + fname, fname)
+                else:
+                    self.logger.error(
+                        'Error. Image command failed (%s).' % fname)
+                    continue
 
             # for now, back to the original!
             self._set_focus(focus_pos_original)

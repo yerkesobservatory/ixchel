@@ -820,13 +820,21 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def get_focus(self, command, user):
+    def _get_focus(self):
         try:
             telescope_interface = TelescopeInterface('get_focus')
             # query telescope
             self.telescope.get_focus(telescope_interface)
             # assign values
             pos = telescope_interface.get_output_value('pos')
+            return pos
+        except Exception as e:
+            self.logger.error('Failed to get the focus to %s.' % _pos)
+            raise
+
+    def get_focus(self, command, user):
+        try:
+            pos = self._get_focus()
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
@@ -846,16 +854,25 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def set_focus(self, command, user):
+    def _set_focus(self, _pos):
         try:
             telescope_interface = TelescopeInterface('set_focus')
             # assign values
-            pos = int(command.group(1))
+            pos = _pos
             telescope_interface.set_input_value('pos', pos)
             # create a command that applies the specified values
             self.telescope.set_focus(telescope_interface)
             # send output to Slack
             pos = telescope_interface.get_output_value('pos')
+            return pos
+        except Exception as e:
+            self.logger.error('Failed to set the focus to %s.' % _pos)
+            raise
+
+    def set_focus(self, command, user):
+        try:
+            pos = self._set_focus(int(command.group(1)))
+            # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -1249,15 +1266,6 @@ class IxchelCommand:
 
     def hocus(self, command, user):
         try:
-            # # ensure slit is open
-            # telescope_interface = TelescopeInterface('get_slit')
-            # self.telescope.get_slit(telescope_interface)  # query telescope
-            # open_close = telescope_interface.get_output_value(
-            #     'open_close')  # assign values
-            # if open_close != 'open':
-            #     self.slack.send_message(
-            #         'The observatory is not open. Run `\crack` first.')
-            #     return
             # identify target from reference stars
             telescope = self.ixchel.telescope.earthLocation
             telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
@@ -1280,11 +1288,7 @@ class IxchelCommand:
                              (target[0], max_alt))
 
             # get current focus setting
-            telescope_interface = TelescopeInterface('get_focus')
-            # query telescope
-            self.telescope.get_focus(telescope_interface)
-            # assign values
-            focus_pos_original = telescope_interface.get_output_value('pos')
+            focus_pos_original = self._get_focus()
             self.logger.info("The current focus position is %d." %
                              focus_pos_original)
 
@@ -1295,7 +1299,12 @@ class IxchelCommand:
             focus_pos_increment = int(self.config.get(
                 'hocusfocus', 'focus_pos_increment'))
             for focus_pos in range(focus_pos_start, focus_pos_end + focus_pos_increment, focus_pos_increment):
-                self.logger.info("Setting focus to %d." % focus_pos)
+                self.slack.send_message(
+                    'Setting focus position to %d...' % focus_pos)
+                focus_pos = self._set_focus(focus_pos)
+
+            # for now, back to the original!
+            self._set_focus(focus_pos_original)
 
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))

@@ -1287,15 +1287,16 @@ class IxchelCommand:
 
     def hocus(self, command, user):
         try:
-            # image settings
+            # settings
             time = self.config.get('hocusfocus', 'time', 30)
             bin = self.config.get('hocusfocus', 'bin', 1)
             filter = self.config.get('hocusfocus', 'filter', 'clear')
             username = self.slack.get_user_by_id(
                 user['id']).get('name', user['id'])
-            # identify target from reference stars
             telescope = self.ixchel.telescope.earthLocation
             telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
+
+            # identify target from reference stars
             max_alt = -91.0
             target = ()  # hocusfocus target based on max altaz
             reference_stars = self.config.get(
@@ -1326,6 +1327,14 @@ class IxchelCommand:
             focus_pos_increment = int(self.config.get(
                 'hocusfocus', 'focus_pos_increment'))
             for focus_pos in range(focus_pos_start, focus_pos_end + focus_pos_increment, focus_pos_increment):
+                # check for abort
+                if self.getDoAbort():
+                    self.slack.send_message(
+                        'Focus calibration sequence aborted.')
+                    self.setDoAbort(False)
+                    self._set_focus(focus_pos_original)
+                    return
+
                 # set focus setting
                 self.slack.send_message(
                     'Setting focus position to %d...' % focus_pos)
@@ -1343,11 +1352,16 @@ class IxchelCommand:
                 #         'Telescope failed to pinpoint to %s.' % target[0])
 
                 # get image
-                fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-                    'hocusfocus', filter, time, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), username.lower(), 0)
-                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                    username.lower() + '/'
+                # fname = self.get_fitsFname('hocusfocus', '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
+                #     'hocusfocus', filter, time, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), username.lower(), 0)
+                fname = self.get_fitsFname(
+                    'hocusfocus', filter, time, bin, username, 0, '')
+                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                #     username.lower() + '/'
+                path = self.get_fitsPath(username)
+
+                self.slack.send_message('Taking calibration image...')
                 success = self._get_image(time, bin, filter, path, fname)
                 if success:
                     self.slack_send_fits_file(path + fname, fname)

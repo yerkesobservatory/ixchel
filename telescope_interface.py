@@ -336,17 +336,11 @@ telescope_interfaces = {
                 'value': None
             }
         },
-        # Field center: (RA,Dec) = (132.077893, 26.584066) deg.
         'outputs': {
-            'ra_image': {
-                'regex': r'(?<=Field center: \(RA,Dec\) = \().*?(?=\,)',
+            'success': {
+                'regex': r'> All done',
                 'value': None,
-                'type': str
-            },
-            # I don't love this...
-            'dec_image': {
-                'regex': r'(?<=, ).*?(?=\) deg.)',
-                'value': None,
+                'optional': False,
                 'type': str
             }
         }

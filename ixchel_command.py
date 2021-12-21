@@ -148,7 +148,7 @@ class IxchelCommand:
                         thread, command.group(0), user.get('name'))
                     self.threads.append(commandThread)
                     thread.start()
-                    #cmd['function'](command, user)
+                    # cmd['function'](command, user)
                 except Exception as e:
                     self.handle_error(command.group(0), 'Exception (%s).' % e)
                 return
@@ -1322,10 +1322,11 @@ class IxchelCommand:
 
             # main focus loop
             focus_pos_start = int(self.config.get(
-                'hocusfocus', 'focus_pos_start'))
-            focus_pos_end = int(self.config.get('hocusfocus', 'focus_pos_end'))
+                'hocusfocus', 'focus_pos_start', 3700))
+            focus_pos_end = int(self.config.get(
+                'hocusfocus', 'focus_pos_end', 4000))
             focus_pos_increment = int(self.config.get(
-                'hocusfocus', 'focus_pos_increment'))
+                'hocusfocus', 'focus_pos_increment', 25))
             for focus_pos in range(focus_pos_start, focus_pos_end + focus_pos_increment, focus_pos_increment):
                 # check for abort
                 if self.getDoAbort():
@@ -1340,16 +1341,16 @@ class IxchelCommand:
                     'Setting focus position to %d...' % focus_pos)
                 focus_pos = self._set_focus(focus_pos)
 
-                # # pinpoint to the target. this could get touchy if focus is too far out!
-                # self.slack.send_message(
-                #     'Pinpointing the telescope to %s. Please wait...' % target[0])
-                # success = self._pinpoint(user, target[1], target[2])
-                # if success:
-                #     self.slack.send_message(
-                #         'Telescope successfully pinpointed to %s.' % target[0])
-                # else:
-                #     self.slack.send_message(
-                #         'Telescope failed to pinpoint to %s.' % target[0])
+                # pinpoint to the target. this could get touchy if focus is too far out!
+                self.slack.send_message(
+                    'Pinpointing the telescope to %s. Please wait...' % target[0])
+                success = self._pinpoint(user, target[1], target[2])
+                if success:
+                    self.slack.send_message(
+                        'Telescope successfully pinpointed to %s.' % target[0])
+                else:
+                    self.slack.send_message(
+                        'Telescope failed to pinpoint to %s.' % target[0])
 
                 # get image
                 # fname = self.get_fitsFname('hocusfocus', '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
@@ -1360,7 +1361,6 @@ class IxchelCommand:
                 #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 #     username.lower() + '/'
                 path = self.get_fitsPath(username)
-
                 self.slack.send_message('Taking calibration image...')
                 success = self._get_image(time, bin, filter, path, fname)
                 if success:
@@ -1369,6 +1369,33 @@ class IxchelCommand:
                     self.logger.error(
                         'Error. Image command failed (%s).' % fname)
                     continue
+
+                # identify stars in image via sextractor
+                self.slack.send_message('Processing calibration image...')
+                sextractor_bin_path = self.config.get('sextractor', 'bin_path')
+                sextractor_sex_path = self.config.get('sextractor', 'sex_path')
+                sextractor_cat_path = self.config.get('sextractor', 'cat_path')
+                sextractor_param_path = self.config.get(
+                    'sextractor', 'param_path')
+                sextractor_conv_path = self.config.get(
+                    'sextractor', 'conv_path')
+                telescope_interface = TelescopeInterface('sextractor')
+                # assign values
+                telescope_interface.set_input_value(
+                    'sextractor_bin_path', sextractor_bin_path)
+                telescope_interface.set_input_value(
+                    'sextractor_sex_path', sextractor_sex_path)
+                telescope_interface.set_input_value(
+                    'sextractor_cat_path', sextractor_cat_path)
+                telescope_interface.set_input_value(
+                    'sextractor_param_path', sextractor_param_path)
+                telescope_interface.set_input_value(
+                    'sextractor_conv_path', sextractor_conv_path)
+                telescope_interface.set_input_value('path', path)
+                telescope_interface.set_input_value('fname', fname)
+                self.telescope.sextractor(telescope_interface)
+                # assign output values
+                success = telescope_interface.get_output_value('success')
 
             # for now, back to the original!
             self._set_focus(focus_pos_original)
@@ -1528,9 +1555,8 @@ class IxchelCommand:
         return fname
 
     def get_fitsPath(self, user):
-        path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-            '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-            user.lower() + '/'
+        path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + '/' + \
+            datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + user.lower() + '/'
         return path
 
     def init_commands(self):

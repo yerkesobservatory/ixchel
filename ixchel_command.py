@@ -23,6 +23,7 @@ import json
 import random
 import string
 from pathlib import PurePosixPath
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # don't need display
 
@@ -1295,6 +1296,20 @@ class IxchelCommand:
                 user['id']).get('name', user['id'])
             telescope = self.ixchel.telescope.earthLocation
             telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
+            # psfex
+            psfex_bin_path = self.config.get('psfex', 'bin_path')
+            psfex_cfg_path = self.config.get('psfex', 'cfg_path')
+            psfex_psf_remote_path = self.config.get('psfex', 'psf_remote_path')
+            psfex_psf_local_path = self.config.get('psfex', 'psf_local_path')
+            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
+            # sextractor
+            sextractor_bin_path = self.config.get('sextractor', 'bin_path')
+            sextractor_sex_path = self.config.get('sextractor', 'sex_path')
+            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
+            sextractor_param_path = self.config.get(
+                'sextractor', 'param_path')
+            sextractor_conv_path = self.config.get(
+                'sextractor', 'conv_path')
 
             # identify target from reference stars
             max_alt = -91.0
@@ -1320,14 +1335,21 @@ class IxchelCommand:
             self.logger.info("The current focus position is %d." %
                              focus_pos_original)
 
-            # main focus loop
+            # focus setting range
             focus_pos_start = int(self.config.get(
                 'hocusfocus', 'focus_pos_start', 3700))
             focus_pos_end = int(self.config.get(
                 'hocusfocus', 'focus_pos_end', 4000))
             focus_pos_increment = int(self.config.get(
                 'hocusfocus', 'focus_pos_increment', 25))
-            for focus_pos in range(focus_pos_start, focus_pos_end + focus_pos_increment, focus_pos_increment):
+            focus_range_len = (focus_pos_end-focus_pos_start) / \
+                focus_pos_increment + 1
+            # the psf vs focus data
+            focus_psf_plot_data = np.zeros(
+                (focus_pos_end-focus_pos_start)/focus_pos_increment + 1, 2)
+            # main focus loop
+            for focus_pos_index in range(0, focus_range_len):
+                focus_pos = focus_pos_start + focus_pos_index*focus_pos_increment
                 # check for abort
                 if self.getDoAbort():
                     self.slack.send_message(
@@ -1371,14 +1393,8 @@ class IxchelCommand:
                     continue
 
                 # identify stars in image via sextractor
-                self.slack.send_message('Processing calibration image...')
-                sextractor_bin_path = self.config.get('sextractor', 'bin_path')
-                sextractor_sex_path = self.config.get('sextractor', 'sex_path')
-                sextractor_cat_path = self.config.get('sextractor', 'cat_path')
-                sextractor_param_path = self.config.get(
-                    'sextractor', 'param_path')
-                sextractor_conv_path = self.config.get(
-                    'sextractor', 'conv_path')
+                self.slack.send_message(
+                    'Extracting stars from calibration image...')
                 telescope_interface = TelescopeInterface('sextractor')
                 # assign values
                 telescope_interface.set_input_value(
@@ -1396,6 +1412,43 @@ class IxchelCommand:
                 self.telescope.sextractor(telescope_interface)
                 # assign output values
                 success = telescope_interface.get_output_value('success')
+                if not success:
+                    self.logger.error(
+                        'Error. Star extraction process failed.')
+                    continue
+
+                # identify stars in image via sextractor
+                self.slack.send_message(
+                    'Calculating the PSF of the calibration image...')
+                telescope_interface = TelescopeInterface('psfex')
+                # assign values
+                telescope_interface.set_input_value(
+                    'psfex_bin_path', psfex_bin_path)
+                telescope_interface.set_input_value(
+                    'psfex_cfg_path', psfex_cfg_path)
+                telescope_interface.set_input_value(
+                    'sextractor_cat_path', sextractor_cat_path)
+                self.telescope.sextractor(telescope_interface)
+                # assign output values
+                success = telescope_interface.get_output_value('success')
+                if not success:
+                    self.logger.error(
+                        'Error. Calculation of PSF failed.')
+                    continue
+                # get psfex output
+                success = self.telescope.get_file(
+                    psfex_psf_remote_path, psfex_psf_local_path)
+                if not success:
+                    self.logger.error(
+                        'Error. Could not get PSF file (%s).' % psfex_psf_remote_path)
+                    continue
+                # get PSF from header
+                psf_fits = fits.open(psfex_psf_local_path)
+                fwhm = psf_fits[1].header['PSF_FWHM']
+                # add focus/psf pair to the data
+                focus_psf_plot_data[focus_pos_index] = focus_pos, fwhm
+                self.slack.send_message(
+                    'For a focus position of %d, estimated FWHM is %s.' % (focus_pos, fwhm))
 
             # for now, back to the original!
             self._set_focus(focus_pos_original)

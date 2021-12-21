@@ -336,5 +336,8 @@ class Telescope:
     def sextractor(self, interface):
         self.setter(interface)
 
+    def psfex(self, interface):
+        self.setter(interface)
+
     def offset(self, interface):
         self.setter(interface)

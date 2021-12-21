@@ -310,6 +310,47 @@ telescope_interfaces = {
             }
         }
     },
+    'sextractor': {
+        'command': '{sextractor_bin_path} {path}{fname} -c {sextractor_sex_path} -CATALOG_NAME {sextractor_cat_path} -PARAMETERS_NAME {sextractor_param_path} -FILTER_NAME {sextractor_conv_path}',
+        'is_background': False,
+        'inputs': {
+            'sextractor_bin_path': {
+                'value': None
+            },
+            'path': {
+                'value': None
+            },
+            'fname': {
+                'value': None
+            },
+            'sextractor_sex_path': {
+                'value': None
+            },
+            'sextractor_cat_path': {
+                'value': None
+            },
+            'sextractor_param_path': {
+                'value': None
+            },
+            'sextractor_conv_path': {
+                'value': None
+            }
+        },
+        # Field center: (RA,Dec) = (132.077893, 26.584066) deg.
+        'outputs': {
+            'ra_image': {
+                'regex': r'(?<=Field center: \(RA,Dec\) = \().*?(?=\,)',
+                'value': None,
+                'type': str
+            },
+            # I don't love this...
+            'dec_image': {
+                'regex': r'(?<=, ).*?(?=\) deg.)',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'pinpoint': {
         'command': '{solve_field_path} --no-verify --overwrite --no-remove-lines --downsample {downsample} --scale-units arcsecperpix --no-plots --scale-low {scale_low} --scale-high {scale_high} --ra {ra_target} --dec {dec_target} --radius {radius} --cpulimit {cpulimit} {path}{fname}; rm -f {path}*.axy; rm -f {path}*.corr; rm -f {path}*.match; rm -f {path}*.new; rm -f {path}*.rdls; rm -f {path}*.solved; rm -f {path}*.wcs',
         'is_background': False,

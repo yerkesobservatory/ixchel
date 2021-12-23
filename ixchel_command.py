@@ -830,12 +830,13 @@ class IxchelCommand:
             pos = telescope_interface.get_output_value('pos')
             return pos
         except Exception as e:
-            self.logger.error('Failed to get the focus to %s.' % _pos)
+            self.logger.error('Failed to get the focus to %d.' % pos)
             raise
 
     def get_focus(self, command, user):
         try:
             pos = self._get_focus()
+            self.logger.error('pos=%d' % pos)
             # send output to Slack
             self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
@@ -855,11 +856,9 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def _set_focus(self, _pos):
+    def _set_focus(self, pos):
         try:
             telescope_interface = TelescopeInterface('set_focus')
-            # assign values
-            pos = _pos
             telescope_interface.set_input_value('pos', pos)
             # create a command that applies the specified values
             self.telescope.set_focus(telescope_interface)
@@ -867,7 +866,7 @@ class IxchelCommand:
             pos = telescope_interface.get_output_value('pos')
             return pos
         except Exception as e:
-            self.logger.error('Failed to set the focus to %s.' % _pos)
+            self.logger.error('Failed to set the focus to %d.' % pos)
             raise
 
     def set_focus(self, command, user):
@@ -1342,11 +1341,10 @@ class IxchelCommand:
                 'hocusfocus', 'focus_pos_end', 4000))
             focus_pos_increment = int(self.config.get(
                 'hocusfocus', 'focus_pos_increment', 25))
-            focus_range_len = (focus_pos_end-focus_pos_start) / \
-                focus_pos_increment + 1
+            focus_range_len = int(
+                (focus_pos_end-focus_pos_start) / focus_pos_increment) + 1
             # the psf vs focus data
-            focus_psf_plot_data = np.zeros(
-                (focus_pos_end-focus_pos_start)/focus_pos_increment + 1, 2)
+            focus_psf_plot_data = np.zeros((focus_range_len, 2))
             # main focus loop
             for focus_pos_index in range(0, focus_range_len):
                 focus_pos = focus_pos_start + focus_pos_index*focus_pos_increment
@@ -1363,16 +1361,16 @@ class IxchelCommand:
                     'Setting focus position to %d...' % focus_pos)
                 focus_pos = self._set_focus(focus_pos)
 
-                # pinpoint to the target. this could get touchy if focus is too far out!
-                self.slack.send_message(
-                    'Pinpointing the telescope to %s. Please wait...' % target[0])
-                success = self._pinpoint(user, target[1], target[2])
-                if success:
-                    self.slack.send_message(
-                        'Telescope successfully pinpointed to %s.' % target[0])
-                else:
-                    self.slack.send_message(
-                        'Telescope failed to pinpoint to %s.' % target[0])
+                # # pinpoint to the target. this could get touchy if focus is too far out!
+                # self.slack.send_message(
+                #     'Pinpointing the telescope to %s. Please wait...' % target[0])
+                # success = self._pinpoint(user, target[1], target[2])
+                # if success:
+                #     self.slack.send_message(
+                #         'Telescope successfully pinpointed to %s.' % target[0])
+                # else:
+                #     self.slack.send_message(
+                #         'Telescope failed to pinpoint to %s.' % target[0])
 
                 # get image
                 # fname = self.get_fitsFname('hocusfocus', '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (

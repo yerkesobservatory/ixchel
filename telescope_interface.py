@@ -552,7 +552,7 @@ telescope_interfaces = {
         'inputs': {},
         'outputs': {
             'pos': {
-                'regex': r'(?<=pos=).*?$',
+                'regex': r'(?<=pos=)[0-9]+',
                 'value': None,
                 'type': int
             }

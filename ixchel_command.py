@@ -1295,6 +1295,8 @@ class IxchelCommand:
                 user['id']).get('name', user['id'])
             telescope = self.ixchel.telescope.earthLocation
             telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
+            focus_plt_path = self.config.get(
+                'hocusfocus', 'focus_plt_path', '/tmp/hocusfocus.png')
             # psfex
             psfex_bin_path = self.config.get('psfex', 'bin_path')
             psfex_cfg_path = self.config.get('psfex', 'cfg_path')
@@ -1447,6 +1449,36 @@ class IxchelCommand:
                 focus_psf_plot_data[focus_pos_index] = focus_pos, fwhm
                 self.slack.send_message(
                     'For a focus position of %d, estimated FWHM is %s.' % (focus_pos, fwhm))
+
+            # fit the data
+            focus_psf_plot_data_fit = np.polyfit(
+                focus_psf_plot_data[:, 0], focus_psf_plot_data[:, 1], 2)
+            # calc the best focus setting
+            focus_pos_ = int(-focus_psf_plot_data_fit[1] /
+                             (2*focus_psf_plot_data_fit[0]))
+
+            # plot focus fits
+            array = np.array(focus_psf_plot_data)
+            plt.scatter(array[:, 0], array[:, 1])
+            x = np.arange(np.min(focus_psf_plot_data)-100,
+                          np.max(focus_psf_plot_data)+100)
+            y = focus_psf_plot_data_fit[0]*x**2 + \
+                focus_psf_plot_data_fit[1]*x+focus_psf_plot_data_fit[2]
+            plt.plot(x, y)
+
+            self.slack.send_message(
+                'Optimum focus position for %d.' % focus_pos)
+
+            plt.ylim(round(np.min(array[:, 1])-3.5),
+                     round(np.max(array[:, 1])+3.5))
+            plt.xlim(np.min(focus_psf_plot_data)-100,
+                     np.max(focus_psf_plot_data)+100)
+            plt.xlabel('Focus Position')
+            plt.ylabel('FWHM')
+            plt.savefig(focus_plt_path, bbox_inches='tight')
+            plt.close()
+
+            self.slack.send_file(focus_plt_path, 'Hocus Focus!')
 
             # for now, back to the original!
             self._set_focus(focus_pos_original)

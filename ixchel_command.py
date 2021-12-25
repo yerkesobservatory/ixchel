@@ -960,15 +960,54 @@ class IxchelCommand:
                 path = self.get_fitsPath(slack_user)
                 error = self._get_image(
                     exposure, bin, filter, path, fname, False, low_fname)
-                if error:
+                if success:
                     self.slack.send_message(
                         'Image command completed successfully.')
                     self.slack_send_fits_file(path + fname, fname)
                     if self.hdr:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
-                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                    self.handle_error(command.group(
+                        0), 'Error. Image command failed.')
                 index = index + 1
+
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def get_psf(self, command, user):
+        try:
+            filter = command.group(3)
+            exposure = float(command.group(1))
+            bin = int(command.group(2))
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
+            self.slack.send_message(
+                'Obtaining image. Please wait...')
+            path = self.get_fitsPath(slack_user)
+            if self.hdr:
+                fname = self.get_fitsFname(
+                    self.target, filter, exposure, bin, slack_user, 0, 'H')
+            else:
+                fname = self.get_fitsFname(
+                    self.target, filter, exposure, bin, slack_user, 0, '')
+            low_fname = self.get_fitsFname(
+                self.target, filter, exposure, bin, slack_user, 0, 'L')
+            success = self._get_image(
+                exposure, bin, filter, path, fname, False, low_fname)
+            if success:
+                self.slack.send_message(
+                    'Image command completed successfully.')
+                self.slack_send_fits_file(path + fname, fname)
+                if self.hdr:
+                    self.slack_send_fits_file(path + low_fname, low_fname)
+            else:
+                self.handle_error(command.group(
+                    0), 'Error. Image command failed.')
+            # calc psf
+            fwhm = self.calc_psf(fname, path)
+            self.slack.send_message(
+                'The image PSF (FWHM) is %s.' % fwhm)
+
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1297,21 +1336,6 @@ class IxchelCommand:
             telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
             focus_plt_path = self.config.get(
                 'hocusfocus', 'focus_plt_path', '/tmp/hocusfocus.png')
-            # psfex
-            psfex_bin_path = self.config.get('psfex', 'bin_path')
-            psfex_cfg_path = self.config.get('psfex', 'cfg_path')
-            psfex_psf_remote_path = self.config.get('psfex', 'psf_remote_path')
-            psfex_psf_local_path = self.config.get('psfex', 'psf_local_path')
-            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
-            # sextractor
-            sextractor_bin_path = self.config.get('sextractor', 'bin_path')
-            sextractor_sex_path = self.config.get('sextractor', 'sex_path')
-            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
-            sextractor_param_path = self.config.get(
-                'sextractor', 'param_path')
-            sextractor_conv_path = self.config.get(
-                'sextractor', 'conv_path')
-
             # identify target from reference stars
             max_alt = -91.0
             target = ()  # hocusfocus target based on max altaz
@@ -1375,15 +1399,11 @@ class IxchelCommand:
                 #         'Telescope failed to pinpoint to %s.' % target[0])
 
                 # get image
-                # fname = self.get_fitsFname('hocusfocus', '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-                #     'hocusfocus', filter, time, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), username.lower(), 0)
                 fname = self.get_fitsFname(
                     'hocusfocus', filter, time, bin, username, 0, '')
-                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                #     username.lower() + '/'
                 path = self.get_fitsPath(username)
-                self.slack.send_message('Taking calibration image...')
+                self.slack.send_message(
+                    'Taking calibration image. Please wait...')
                 success = self._get_image(time, bin, filter, path, fname)
                 if success:
                     self.slack_send_fits_file(path + fname, fname)
@@ -1392,59 +1412,9 @@ class IxchelCommand:
                         'Error. Image command failed (%s).' % fname)
                     continue
 
-                # identify stars in image via sextractor
-                self.slack.send_message(
-                    'Extracting stars from calibration image...')
-                telescope_interface = TelescopeInterface('sextractor')
-                # assign values
-                telescope_interface.set_input_value(
-                    'sextractor_bin_path', sextractor_bin_path)
-                telescope_interface.set_input_value(
-                    'sextractor_sex_path', sextractor_sex_path)
-                telescope_interface.set_input_value(
-                    'sextractor_cat_path', sextractor_cat_path)
-                telescope_interface.set_input_value(
-                    'sextractor_param_path', sextractor_param_path)
-                telescope_interface.set_input_value(
-                    'sextractor_conv_path', sextractor_conv_path)
-                telescope_interface.set_input_value('path', path)
-                telescope_interface.set_input_value('fname', fname)
-                self.telescope.sextractor(telescope_interface)
-                # assign output values
-                success = telescope_interface.get_output_value('success')
-                if not success:
-                    self.logger.error(
-                        'Error. Star extraction process failed.')
-                    continue
+                # calc psf
+                fwhm = self.calc_psf(fname, path)
 
-                # identify stars in image via sextractor
-                self.slack.send_message(
-                    'Calculating the PSF of the calibration image...')
-                telescope_interface = TelescopeInterface('psfex')
-                # assign values
-                telescope_interface.set_input_value(
-                    'psfex_bin_path', psfex_bin_path)
-                telescope_interface.set_input_value(
-                    'psfex_cfg_path', psfex_cfg_path)
-                telescope_interface.set_input_value(
-                    'sextractor_cat_path', sextractor_cat_path)
-                self.telescope.sextractor(telescope_interface)
-                # assign output values
-                success = telescope_interface.get_output_value('success')
-                if not success:
-                    self.logger.error(
-                        'Error. Calculation of PSF failed.')
-                    continue
-                # get psfex output
-                success = self.telescope.get_file(
-                    psfex_psf_remote_path, psfex_psf_local_path)
-                if not success:
-                    self.logger.error(
-                        'Error. Could not get PSF file (%s).' % psfex_psf_remote_path)
-                    continue
-                # get PSF from header
-                psf_fits = fits.open(psfex_psf_local_path)
-                fwhm = psf_fits[1].header['PSF_FWHM']
                 # add focus/psf pair to the data
                 focus_psf_plot_data[focus_pos_index] = focus_pos, fwhm
                 self.slack.send_message(
@@ -1485,6 +1455,79 @@ class IxchelCommand:
 
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
+
+    def calc_psf(self, fname, path):
+        try:
+            # psfex
+            psfex_bin_path = self.config.get('psfex', 'bin_path')
+            psfex_cfg_path = self.config.get('psfex', 'cfg_path')
+            psfex_psf_remote_path = self.config.get('psfex', 'psf_remote_path')
+            psfex_psf_local_path = self.config.get('psfex', 'psf_local_path')
+            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
+            # sextractor
+            sextractor_bin_path = self.config.get('sextractor', 'bin_path')
+            sextractor_sex_path = self.config.get('sextractor', 'sex_path')
+            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
+            sextractor_param_path = self.config.get(
+                'sextractor', 'param_path')
+            sextractor_conv_path = self.config.get(
+                'sextractor', 'conv_path')
+
+            # identify stars in image via sextractor
+            self.slack.send_message(
+                'Extracting stars from image. Please wait...')
+            telescope_interface = TelescopeInterface('sextractor')
+            # assign values
+            telescope_interface.set_input_value(
+                'sextractor_bin_path', sextractor_bin_path)
+            telescope_interface.set_input_value(
+                'sextractor_sex_path', sextractor_sex_path)
+            telescope_interface.set_input_value(
+                'sextractor_cat_path', sextractor_cat_path)
+            telescope_interface.set_input_value(
+                'sextractor_param_path', sextractor_param_path)
+            telescope_interface.set_input_value(
+                'sextractor_conv_path', sextractor_conv_path)
+            telescope_interface.set_input_value('path', path)
+            telescope_interface.set_input_value('fname', fname)
+            self.telescope.sextractor(telescope_interface)
+            # assign output values
+            success = telescope_interface.get_output_value('success')
+            if not success:
+                self.logger.error(
+                    'Error. Star extraction process failed.')
+                raise
+
+            # identify stars in image via sextractor
+            self.slack.send_message(
+                'Calculating the PSF of the image. Please wait...')
+            telescope_interface = TelescopeInterface('psfex')
+            # assign values
+            telescope_interface.set_input_value(
+                'psfex_bin_path', psfex_bin_path)
+            telescope_interface.set_input_value(
+                'psfex_cfg_path', psfex_cfg_path)
+            telescope_interface.set_input_value(
+                'sextractor_cat_path', sextractor_cat_path)
+            self.telescope.sextractor(telescope_interface)
+            # assign output values
+            success = telescope_interface.get_output_value('success')
+            if not success:
+                raise Exception('Error. Calculation of PSF failed.')
+            # get psfex output
+            success = self.telescope.get_file(
+                psfex_psf_remote_path, psfex_psf_local_path)
+            if not success:
+                raise Exception('Error. Could not get PSF file (%s).' %
+                                psfex_psf_remote_path)
+            # get PSF from header
+            psf_fits = fits.open(psfex_psf_local_path)
+            fwhm = psf_fits[1].header['PSF_FWHM']
+            return fwhm
+
+        except Exception as e:
+            self.logger.error('%s' % (e))
+            raise  # reraise
 
     def to_stars(self, command, user):
         # get sky image from SEO camera
@@ -1722,6 +1765,14 @@ class IxchelCommand:
                     'regex': r'^\\image\s([0-9\.]+)\s(1|2)\s(%s)(\s[0-9]+)?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_image,
                     'description': '`\\image <exposure (s)> <binning> <%s> <count>` takes an image. <count> defaults to 1.' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\psf\s([0-9\.]+)\s(1|2)\s(%s)?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'function': self.get_psf,
+                    'description': '`\\psf <exposure (s)> <binning> <%s>` takes an image and calculates PSF' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'hide': False,
                     'lock': True
                 },

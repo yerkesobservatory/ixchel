@@ -958,7 +958,7 @@ class IxchelCommand:
                 #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 #     slack_user + '/'
                 path = self.get_fitsPath(slack_user)
-                error = self._get_image(
+                success = self._get_image(
                     exposure, bin, filter, path, fname, False, low_fname)
                 if success:
                     self.slack.send_message(
@@ -967,8 +967,8 @@ class IxchelCommand:
                     if self.hdr:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
-                    self.handle_error(command.group(
-                        0), 'Error. Image command failed.')
+                    raise Exception(
+                        'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
 
         except Exception as e:
@@ -1050,16 +1050,17 @@ class IxchelCommand:
                 #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 #     slack_user + '/'
                 path = self.get_fitsPath(slack_user)
-                error = self._get_image(
+                success = self._get_image(
                     exposure, bin, filter, path, fname, True, low_fname)
-                if error:
+                if success:
                     self.slack.send_message(
                         'Image command completed successfully.')
                     self.slack_send_fits_file(path + fname, fname)
                     if self.hdr:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
-                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                    raise Exception(
+                        'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -1102,16 +1103,17 @@ class IxchelCommand:
                 #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
                 #     slack_user + '/'
                 path = self.get_fitsPath(slack_user)
-                error = self._get_image(
+                success = self._get_image(
                     exposure, bin, filter, path, fname, True, low_fname)
-                if error:
+                if success:
                     self.slack.send_message(
                         'Image command completed successfully.')
                     self.slack_send_fits_file(path + fname, fname)
                     if self.hdr:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
-                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                    raise Exception(
+                        'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -1436,9 +1438,6 @@ class IxchelCommand:
                 focus_psf_plot_data_fit[1]*x+focus_psf_plot_data_fit[2]
             plt.plot(x, y)
 
-            self.slack.send_message(
-                'Optimum focus position for %d.' % focus_pos)
-
             plt.ylim(round(np.min(array[:, 1])-3.5),
                      round(np.max(array[:, 1])+3.5))
             plt.xlim(np.min(focus_psf_plot_data)-100,
@@ -1452,6 +1451,9 @@ class IxchelCommand:
 
             # for now, back to the original!
             self._set_focus(focus_pos_original)
+
+            self.slack.send_message(
+                'Optimum focus is %d. Run `\focus %d` to set this value.' % (focus_pos, focus_pos))
 
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
@@ -1561,6 +1563,54 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(
                 0), 'Failed to upload images to http://stars.uchicago.edu. Exception (%s).' % (e))
+
+    def get_status(self, command, user):
+        preview_old = self.preview
+        try:
+            self.preview = False
+            filter = self.config.get('telescope', 'filter_for_darks')
+            exposure = 1
+            bin = 1
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
+            self.slack.send_message(
+                'Obtaining telescope status. Please wait...')
+            if self.hdr:
+                fname = self.get_fitsFname(
+                    'status', filter, exposure, bin, slack_user, 0, 'H')
+            else:
+                fname = self.get_fitsFname(
+                    'status', filter, exposure, bin, slack_user, 0, '')
+            low_fname = self.get_fitsFname(
+                'status', filter, exposure, bin, slack_user, 0, 'L')
+            path = self.get_fitsPath(slack_user)
+            success = self._get_image(
+                exposure, bin, filter, path, fname, True, low_fname)
+            if success:
+                self.slack_send_fits_file(path + fname, fname)
+                if self.hdr:
+                    self.slack_send_fits_file(path + low_fname, low_fname)
+            else:
+                raise Exception(
+                    'Failed to send the file (%s) to Slack.' % (path + fname))
+
+            # extract header info from the fits file
+            image_local_file_path = self.config.get(
+                'telescope', 'image_local_file_path', './image.fits')
+            success = self.telescope.get_file(
+                path + fname, image_local_file_path)
+            if not success:
+                raise Exception('Error. Could not get status FITS file (%s).' %
+                                image_local_file_path)
+            fitshdr = fits.getheader(image_local_file_path, 0)
+            for key in list(fitshdr.keys()):
+                self.slack.send_message(key)
+                time.sleep(1)
+
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+        finally:
+            self.preview = preview_old
 
     def get_weather(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
@@ -1772,7 +1822,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\psf\s([0-9\.]+)\s(1|2)\s(%s)?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_psf,
-                    'description': '`\\psf <exposure (s)> <binning> <%s>` takes an image and calculates PSF' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'description': '`\\psf <exposure (s)> <binning> <%s>` takes an image and calculates the PSF' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'hide': False,
                     'lock': True
                 },
@@ -1880,6 +1930,15 @@ class IxchelCommand:
                     'hide': False
                 },
 
+
+                {
+                    'regex': r'^\\status$',
+                    'function': self.get_status,
+                    'description': '`\\status` shows telescope status information',
+                    'hide': False,
+                    'lock': True
+                },
+
                 {
                     'regex': r'^\\clouds$',
                     'function': self.get_clouds,
@@ -1941,7 +2000,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\preview$',
                     'function': self.get_preview,
-                    'description': '`\\preview` shows the status of the FITS image preview',
+                    'description': '`\\preview` shows the on/off state of the FITS image preview',
                     'hide': False
                 },
 

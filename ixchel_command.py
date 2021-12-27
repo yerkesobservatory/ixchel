@@ -1602,10 +1602,25 @@ class IxchelCommand:
             if not success:
                 raise Exception('Error. Could not get status FITS file (%s).' %
                                 image_local_file_path)
+            # get list of status fields
+            telescope_status_fields = self.config.get(
+                'telescope', 'telescope_status_fields').split('\n')
+            status_fields = dict()
+            for telescope_status_field in telescope_status_fields:
+                (key, label) = telescope_status_field.split('|', 2)
+                status_fields[key] = label
+            # get fits header
             fitshdr = fits.getheader(image_local_file_path, 0)
+            # print fits header values for those fields defined in telescope_status_fields
+            # send output to Slack
+            self.slack.send_message('Telescope Status:')
+            slack_message = ''
             for key in list(fitshdr.keys()):
-                self.slack.send_message(key)
-                time.sleep(1)
+                # show this header field?
+                if key in status_fields:
+                    slack_message = slack_message + \
+                        '>%s: %s\n' % (key, fitshdr[key])
+            self.slack.send_message(slack_message)
 
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)

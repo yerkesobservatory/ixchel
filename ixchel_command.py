@@ -280,9 +280,6 @@ class IxchelCommand:
         # name and path for pinpoint images
         fname = self.get_fitsFname(
             'pinpoint', filter, time, bin, user.lower(), 0, '')
-        # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-        #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-        #     user + '/'
         path = self.get_fitsPath(user.lower())
 
         ra_target = Angle(ra.replace(' ', ':'), unit=u.hour).degree
@@ -830,7 +827,7 @@ class IxchelCommand:
             pos = telescope_interface.get_output_value('pos')
             return pos
         except Exception as e:
-            self.logger.error('Failed to get the focus to %d.' % pos)
+            self.logger.error('Exception. Failed to get the focus setting.')
             raise
 
     def get_focus(self, command, user):
@@ -866,7 +863,8 @@ class IxchelCommand:
             pos = telescope_interface.get_output_value('pos')
             return pos
         except Exception as e:
-            self.logger.error('Failed to set the focus to %d.' % pos)
+            self.logger.error(
+                'Exception. Failed to set the focus to %d.' % pos)
             raise
 
     def set_focus(self, command, user):
@@ -1520,7 +1518,7 @@ class IxchelCommand:
             return fwhm
 
         except Exception as e:
-            self.logger.error('%s' % (e))
+            self.logger.error('Exception (%s).' % (e))
             raise  # reraise
 
     def to_stars(self, command, user):

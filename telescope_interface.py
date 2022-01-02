@@ -214,9 +214,9 @@ telescope_interfaces = {
                 'type': str
             },
             'drive': {
-                'regex': r'(?<=drive=).*?$',
+                'regex': r'(?<=drive=).*?(?= )',
                 'value': None,
-                'type': int
+                'type': float
             }
         }
     },
@@ -304,6 +304,64 @@ telescope_interfaces = {
         'outputs': {
             'success': {
                 'regex': r'^done offset',
+                'value': None,
+                'optional': False,
+                'type': str
+            }
+        }
+    },
+    'psfex': {
+        'command': '{psfex_bin_path} {sextractor_cat_path} -c {psfex_cfg_path}',
+        'is_background': False,
+        'inputs': {
+            'psfex_bin_path': {
+                'value': None
+            },
+            'sextractor_cat_path': {
+                'value': None
+            },
+            'psfex_cfg_path': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'success': {
+                'regex': r'> All done',
+                'value': None,
+                'optional': False,
+                'type': str
+            }
+        }
+    },
+    'sextractor': {
+        'command': '{sextractor_bin_path} {path}{fname} -c {sextractor_sex_path} -CATALOG_NAME {sextractor_cat_path} -PARAMETERS_NAME {sextractor_param_path} -FILTER_NAME {sextractor_conv_path}',
+        'is_background': False,
+        'inputs': {
+            'sextractor_bin_path': {
+                'value': None
+            },
+            'path': {
+                'value': None
+            },
+            'fname': {
+                'value': None
+            },
+            'sextractor_sex_path': {
+                'value': None
+            },
+            'sextractor_cat_path': {
+                'value': None
+            },
+            'sextractor_param_path': {
+                'value': None
+            },
+            'sextractor_conv_path': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'success': {
+                'regex': r'> All done',
                 'value': None,
                 'optional': False,
                 'type': str
@@ -494,7 +552,7 @@ telescope_interfaces = {
         'inputs': {},
         'outputs': {
             'pos': {
-                'regex': r'(?<=pos=).*?$',
+                'regex': r'(?<=pos=)[0-9]+',
                 'value': None,
                 'type': int
             }

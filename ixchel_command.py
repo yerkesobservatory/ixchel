@@ -23,6 +23,7 @@ import json
 import random
 import string
 from pathlib import PurePosixPath
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # don't need display
 
@@ -148,7 +149,7 @@ class IxchelCommand:
                         thread, command.group(0), user.get('name'))
                     self.threads.append(commandThread)
                     thread.start()
-                    #cmd['function'](command, user)
+                    # cmd['function'](command, user)
                 except Exception as e:
                     self.handle_error(command.group(0), 'Exception (%s).' % e)
                 return
@@ -253,7 +254,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def _pinpoint(self, command, _user, ra, dec):
+    def _pinpoint(self, _user, ra, dec):
         # astrometry parameters
         solve_field_path = self.config.get(
             'pinpoint', 'solve_field_path', '/home/chultun/astrometry/bin/solve-field')
@@ -277,11 +278,9 @@ class IxchelCommand:
         user = self.slack.get_user_by_id(_user['id']).get('name', _user['id'])
 
         # name and path for pinpoint images
-        fname = '%s_%s_%ss_bin%s_%s_%s_seo_%d_RAW.fits' % (
-            'pinpoint', filter, time, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), user.lower(), 0)
-        path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-            '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-            user + '/'
+        fname = self.get_fitsFname(
+            'pinpoint', filter, time, bin, user.lower(), 0, '')
+        path = self.get_fitsPath(user.lower())
 
         ra_target = Angle(ra.replace(' ', ':'), unit=u.hour).degree
         dec_target = Angle(dec.replace(' ', ':'), unit=u.deg).degree
@@ -329,11 +328,12 @@ class IxchelCommand:
         while(iteration < max_tries):
             self.slack.send_message(
                 'Obtaining intermediate image (#%d) for pinpoint astrometry...' % (iteration+1))
-            error = self._get_image(time, bin, filter, path, fname)
-            if error:
+            success = self._get_image(time, bin, filter, path, fname)
+            if success:
                 self.slack_send_fits_file(path + fname, fname)
             else:
-                self.handle_error(command.group(0), 'Error (%s).' % error)
+                self.logger.error('Error. Image command failed (%s).' % fname)
+                return False
 
             telescope_interface = TelescopeInterface('pinpoint')
             # assign values
@@ -414,8 +414,7 @@ class IxchelCommand:
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
                 self.config.get('slack', 'bot_name'), skyObject.name))
-            success = self._pinpoint(
-                command, user, skyObject.ra, skyObject.dec)
+            success = self._pinpoint(user, skyObject.ra, skyObject.dec)
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to %s.' % skyObject.name)
@@ -433,8 +432,7 @@ class IxchelCommand:
             dec = command.group(2).strip()
             self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
                                     (self.config.get('slack', 'bot_name'), ra, dec))
-            success = self._pinpoint(
-                command, user, ra, dec)
+            success = self._pinpoint(user, ra, dec)
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
@@ -743,7 +741,7 @@ class IxchelCommand:
             self.slack.send_message('>Pixels: %d x %d' % (nrow, ncol))
             self.slack.send_message('>Temperature: %.1f° C' % tchip)
             self.slack.send_message('>Set Point: %.1f° C' % setpoint)
-            self.slack.send_message('>Cooler Drive: %d%%' % drive)
+            self.slack.send_message('>Cooler Drive: %.1f' % drive)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -820,15 +818,23 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def get_focus(self, command, user):
+    def _get_focus(self):
         try:
             telescope_interface = TelescopeInterface('get_focus')
             # query telescope
-            self.telescope.get_precipitation(telescope_interface)
+            self.telescope.get_focus(telescope_interface)
             # assign values
-            _pos = telescope_interface.get_output_value('pos')
+            pos = telescope_interface.get_output_value('pos')
+            return pos
+        except Exception as e:
+            self.logger.error('Exception. Failed to get the focus setting.')
+            raise
+
+    def get_focus(self, command, user):
+        try:
+            pos = self._get_focus()
             # send output to Slack
-            self.slack.send_message('Focus position is %d.' % _pos)
+            self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -846,17 +852,25 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def set_focus(self, command, user):
+    def _set_focus(self, pos):
         try:
             telescope_interface = TelescopeInterface('set_focus')
-            # assign values
-            _pos = int(command.group(1))
-            telescope_interface.set_input_value('pos', _pos)
+            telescope_interface.set_input_value('pos', pos)
             # create a command that applies the specified values
             self.telescope.set_focus(telescope_interface)
             # send output to Slack
-            _pos = telescope_interface.get_output_value('pos')
-            self.slack.send_message('Focus position is %d.' % _pos)
+            pos = telescope_interface.get_output_value('pos')
+            return pos
+        except Exception as e:
+            self.logger.error(
+                'Exception. Failed to set the focus to %d.' % pos)
+            raise
+
+    def set_focus(self, command, user):
+        try:
+            pos = self._set_focus(int(command.group(1)))
+            # send output to Slack
+            self.slack.send_message('Focus position is %d.' % pos)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -923,28 +937,74 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Obtaining image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        self.target, filter, exposure, bin, slack_user, index, 'H')
                 else:
-                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        self.target, filter, exposure, bin, slack_user, index, '')
                 # only gets used if self.hdr == True
-                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                    slack_user + '/'
-                error = self._get_image(
+                # low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d.gz' % (
+                #     self.target, filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                low_fname = self.get_fitsFname(
+                    self.target, filter, exposure, bin, slack_user, index, 'L')
+                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                #     slack_user + '/'
+                path = self.get_fitsPath(slack_user)
+                success = self._get_image(
                     exposure, bin, filter, path, fname, False, low_fname)
-                if error:
+                if success:
                     self.slack.send_message(
                         'Image command completed successfully.')
                     self.slack_send_fits_file(path + fname, fname)
                     if self.hdr:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
-                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                    raise Exception(
+                        'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
+
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def get_psf(self, command, user):
+        try:
+            filter = command.group(3)
+            exposure = float(command.group(1))
+            bin = int(command.group(2))
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
+            self.slack.send_message(
+                'Obtaining image. Please wait...')
+            path = self.get_fitsPath(slack_user)
+            if self.hdr:
+                fname = self.get_fitsFname(
+                    self.target, filter, exposure, bin, slack_user, 0, 'H')
+            else:
+                fname = self.get_fitsFname(
+                    self.target, filter, exposure, bin, slack_user, 0, '')
+            low_fname = self.get_fitsFname(
+                self.target, filter, exposure, bin, slack_user, 0, 'L')
+            success = self._get_image(
+                exposure, bin, filter, path, fname, False, low_fname)
+            if success:
+                self.slack.send_message(
+                    'Image command completed successfully.')
+                self.slack_send_fits_file(path + fname, fname)
+                if self.hdr:
+                    self.slack_send_fits_file(path + low_fname, low_fname)
+            else:
+                self.handle_error(command.group(
+                    0), 'Error. Image command failed.')
+            # calc psf
+            fwhm = self.calc_psf(fname, path)
+            self.slack.send_message(
+                'The image PSF (FWHM) is %s.' % fwhm)
+
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -969,27 +1029,35 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Obtaining dark image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        'dark', filter, exposure, bin, slack_user, index, 'H')
                 else:
-                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    # fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
+                    #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        'dark', filter, exposure, bin, slack_user, index, '')
                 # only gets used if self.hdr == True
-                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                    slack_user + '/'
-                error = self._get_image(
+                # low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
+                #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                low_fname = self.get_fitsFname(
+                    'dark', filter, exposure, bin, slack_user, index, 'L')
+                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
+                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
+                #     slack_user + '/'
+                path = self.get_fitsPath(slack_user)
+                success = self._get_image(
                     exposure, bin, filter, path, fname, True, low_fname)
-                if error:
+                if success:
                     self.slack.send_message(
                         'Image command completed successfully.')
                     self.slack_send_fits_file(path + fname, fname)
                     if self.hdr:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
-                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                    raise Exception(
+                        'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -1015,26 +1083,25 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Obtaining bias image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
+                    fname = self.get_fitsFname(
+                        'bias', filter, exposure, bin, slack_user, index, 'H')
                 else:
-                    fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                        'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    'bias', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
-                path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                    '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                    slack_user + '/'
-                error = self._get_image(
+                    fname = self.get_fitsFname(
+                        'bias', filter, exposure, bin, slack_user, index, '')
+                low_fname = self.get_fitsFname(
+                    'bias', filter, exposure, bin, slack_user, index, 'L')
+                path = self.get_fitsPath(slack_user)
+                success = self._get_image(
                     exposure, bin, filter, path, fname, True, low_fname)
-                if error:
+                if success:
                     self.slack.send_message(
                         'Image command completed successfully.')
                     self.slack_send_fits_file(path + fname, fname)
                     if self.hdr:
                         self.slack_send_fits_file(path + low_fname, low_fname)
                 else:
-                    self.handle_error(command.group(0), 'Error (%s).' % error)
+                    raise Exception(
+                        'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -1247,6 +1314,212 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
+    def hocus(self, command, user):
+        try:
+            # settings
+            time = self.config.get('hocusfocus', 'time', 30)
+            bin = self.config.get('hocusfocus', 'bin', 1)
+            filter = self.config.get('hocusfocus', 'filter', 'clear')
+            username = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
+            telescope = self.ixchel.telescope.earthLocation
+            telescope_now = Time(datetime.datetime.utcnow(), scale='utc')
+            focus_plt_path = self.config.get(
+                'hocusfocus', 'focus_plt_path', '/tmp/hocusfocus.png')
+            # identify target from reference stars
+            max_alt = -91.0
+            target = ()  # hocusfocus target based on max altaz
+            reference_stars = self.config.get(
+                'hocusfocus', 'reference_stars').split('\n')
+            for reference_star in reference_stars:
+                (name, ra, dec) = reference_star.split('|', 3)
+                # create SkyCoord instance from RA and DEC
+                c = SkyCoord(ra, dec, unit=(u.hour, u.deg))
+                # transform RA,DEC to alt, az for this object from the observatory
+                altaz = c.transform_to(
+                    AltAz(obstime=telescope_now, location=telescope))
+                # track the reference star with max alt
+                if(altaz.alt.degree > max_alt):
+                    max_alt = altaz.alt.degree
+                    target = (name, ra, dec)
+            self.logger.info("The target star is %s (alt=%f deg)." %
+                             (target[0], max_alt))
+
+            # get current focus setting
+            focus_pos_original = self._get_focus()
+            self.logger.info("The current focus position is %d." %
+                             focus_pos_original)
+
+            # focus setting range
+            focus_pos_start = int(self.config.get(
+                'hocusfocus', 'focus_pos_start', 3700))
+            focus_pos_end = int(self.config.get(
+                'hocusfocus', 'focus_pos_end', 4000))
+            focus_pos_increment = int(self.config.get(
+                'hocusfocus', 'focus_pos_increment', 25))
+            focus_range_len = int(
+                (focus_pos_end-focus_pos_start) / focus_pos_increment) + 1
+            # the psf vs focus data
+            focus_psf_plot_data = np.zeros((focus_range_len, 2))
+            # main focus loop
+            for focus_pos_index in range(0, focus_range_len):
+                focus_pos = focus_pos_start + focus_pos_index*focus_pos_increment
+                # check for abort
+                if self.getDoAbort():
+                    self.slack.send_message(
+                        'Focus calibration sequence aborted.')
+                    self.setDoAbort(False)
+                    self._set_focus(focus_pos_original)
+                    return
+
+                # set focus setting
+                self.slack.send_message(
+                    'Setting focus position to %d...' % focus_pos)
+                focus_pos = self._set_focus(focus_pos)
+
+                # # pinpoint to the target. this could get touchy if focus is too far out!
+                self.slack.send_message(
+                    'Pinpointing the telescope to %s. Please wait...' % target[0])
+                success = self._pinpoint(user, target[1], target[2])
+                if success:
+                    self.slack.send_message(
+                        'Telescope successfully pinpointed to %s.' % target[0])
+                else:
+                    self.slack.send_message(
+                        'Telescope failed to pinpoint to %s.' % target[0])
+                    continue
+
+                # get image
+                fname = self.get_fitsFname(
+                    'hocusfocus', filter, time, bin, username, 0, '')
+                path = self.get_fitsPath(username)
+                self.slack.send_message(
+                    'Taking calibration image. Please wait...')
+                success = self._get_image(time, bin, filter, path, fname)
+                if success:
+                    self.slack_send_fits_file(path + fname, fname)
+                else:
+                    self.logger.error(
+                        'Error. Image command failed (%s).' % fname)
+                    continue
+
+                # calc psf
+                fwhm = self.calc_psf(fname, path)
+
+                # add focus/psf pair to the data
+                focus_psf_plot_data[focus_pos_index] = focus_pos, fwhm
+                self.slack.send_message(
+                    'For a focus position of %d, estimated FWHM is %s.' % (focus_pos, fwhm))
+
+            # fit the data
+            focus_psf_plot_data_fit = np.polyfit(
+                focus_psf_plot_data[:, 0], focus_psf_plot_data[:, 1], 2)
+            # calc the best focus setting
+            focus_pos_ = int(-focus_psf_plot_data_fit[1] /
+                             (2*focus_psf_plot_data_fit[0]))
+
+            # plot focus fits
+            array = np.array(focus_psf_plot_data)
+            plt.scatter(array[:, 0], array[:, 1])
+            x = np.arange(np.min(focus_psf_plot_data)-100,
+                          np.max(focus_psf_plot_data)+100)
+            y = focus_psf_plot_data_fit[0]*x**2 + \
+                focus_psf_plot_data_fit[1]*x+focus_psf_plot_data_fit[2]
+            plt.plot(x, y)
+
+            plt.ylim(round(np.min(array[:, 1])-3.5),
+                     round(np.max(array[:, 1])+3.5))
+            plt.xlim(np.min(focus_psf_plot_data)-100,
+                     np.max(focus_psf_plot_data)+100)
+            plt.xlabel('Focus Position')
+            plt.ylabel('FWHM')
+            plt.savefig(focus_plt_path, bbox_inches='tight')
+            plt.close()
+
+            self.slack.send_file(focus_plt_path, 'Hocus Focus!')
+
+            # for now, back to the original!
+            self._set_focus(focus_pos_original)
+
+            self.slack.send_message(
+                'Optimum focus is %d. Run `\\focus %d` to set this value.' % (focus_pos, focus_pos))
+
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % (e))
+
+    def calc_psf(self, fname, path):
+        try:
+            # psfex
+            psfex_bin_path = self.config.get('psfex', 'bin_path')
+            psfex_cfg_path = self.config.get('psfex', 'cfg_path')
+            psfex_psf_remote_path = self.config.get('psfex', 'psf_remote_path')
+            psfex_psf_local_path = self.config.get('psfex', 'psf_local_path')
+            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
+            # sextractor
+            sextractor_bin_path = self.config.get('sextractor', 'bin_path')
+            sextractor_sex_path = self.config.get('sextractor', 'sex_path')
+            sextractor_cat_path = self.config.get('sextractor', 'cat_path')
+            sextractor_param_path = self.config.get(
+                'sextractor', 'param_path')
+            sextractor_conv_path = self.config.get(
+                'sextractor', 'conv_path')
+
+            # identify stars in image via sextractor
+            self.slack.send_message(
+                'Extracting stars from image. Please wait...')
+            telescope_interface = TelescopeInterface('sextractor')
+            # assign values
+            telescope_interface.set_input_value(
+                'sextractor_bin_path', sextractor_bin_path)
+            telescope_interface.set_input_value(
+                'sextractor_sex_path', sextractor_sex_path)
+            telescope_interface.set_input_value(
+                'sextractor_cat_path', sextractor_cat_path)
+            telescope_interface.set_input_value(
+                'sextractor_param_path', sextractor_param_path)
+            telescope_interface.set_input_value(
+                'sextractor_conv_path', sextractor_conv_path)
+            telescope_interface.set_input_value('path', path)
+            telescope_interface.set_input_value('fname', fname)
+            self.telescope.sextractor(telescope_interface)
+            # assign output values
+            success = telescope_interface.get_output_value('success')
+            if not success:
+                self.logger.error(
+                    'Error. Star extraction process failed.')
+                raise
+
+            # identify stars in image via sextractor
+            self.slack.send_message(
+                'Calculating the PSF of the image. Please wait...')
+            telescope_interface = TelescopeInterface('psfex')
+            # assign values
+            telescope_interface.set_input_value(
+                'psfex_bin_path', psfex_bin_path)
+            telescope_interface.set_input_value(
+                'psfex_cfg_path', psfex_cfg_path)
+            telescope_interface.set_input_value(
+                'sextractor_cat_path', sextractor_cat_path)
+            self.telescope.sextractor(telescope_interface)
+            # assign output values
+            success = telescope_interface.get_output_value('success')
+            if not success:
+                raise Exception('Error. Calculation of PSF failed.')
+            # get psfex output
+            success = self.telescope.get_file(
+                psfex_psf_remote_path, psfex_psf_local_path)
+            if not success:
+                raise Exception('Error. Could not get PSF file (%s).' %
+                                psfex_psf_remote_path)
+            # get PSF from header
+            psf_fits = fits.open(psfex_psf_local_path)
+            fwhm = psf_fits[1].header['PSF_FWHM']
+            return fwhm
+
+        except Exception as e:
+            self.logger.error('Exception (%s).' % (e))
+            raise  # reraise
+
     def to_stars(self, command, user):
         # get sky image from SEO camera
         try:
@@ -1279,6 +1552,69 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(
                 0), 'Failed to upload images to http://stars.uchicago.edu. Exception (%s).' % (e))
+
+    def get_status(self, command, user):
+        preview_old = self.preview
+        try:
+            self.preview = False
+            filter = self.config.get('telescope', 'filter_for_darks')
+            exposure = 1
+            bin = 1
+            slack_user = self.slack.get_user_by_id(
+                user['id']).get('name', user['id'])
+            self.slack.send_message(
+                'Obtaining telescope status. Please wait...')
+            if self.hdr:
+                fname = self.get_fitsFname(
+                    'status', filter, exposure, bin, slack_user, 0, 'H')
+            else:
+                fname = self.get_fitsFname(
+                    'status', filter, exposure, bin, slack_user, 0, '')
+            low_fname = self.get_fitsFname(
+                'status', filter, exposure, bin, slack_user, 0, 'L')
+            path = self.get_fitsPath(slack_user)
+            success = self._get_image(
+                exposure, bin, filter, path, fname, True, low_fname)
+            if success:
+                self.slack_send_fits_file(path + fname, fname)
+                if self.hdr:
+                    self.slack_send_fits_file(path + low_fname, low_fname)
+            else:
+                raise Exception(
+                    'Failed to send the file (%s) to Slack.' % (path + fname))
+
+            # extract header info from the fits file
+            image_local_file_path = self.config.get(
+                'telescope', 'image_local_file_path', './image.fits')
+            success = self.telescope.get_file(
+                path + fname, image_local_file_path)
+            if not success:
+                raise Exception('Error. Could not get status FITS file (%s).' %
+                                image_local_file_path)
+            # get list of status fields
+            telescope_status_fields = self.config.get(
+                'telescope', 'telescope_status_fields').split('\n')
+            status_fields = dict()
+            for telescope_status_field in telescope_status_fields:
+                (key, label) = telescope_status_field.split('|', 2)
+                status_fields[key] = label
+            # get fits header
+            fitshdr = fits.getheader(image_local_file_path, 0)
+            # print fits header values for those fields defined in telescope_status_fields
+            # send output to Slack
+            self.slack.send_message('Telescope Status:')
+            slack_message = ''
+            for key in list(fitshdr.keys()):
+                # show this header field?
+                if key in status_fields:
+                    slack_message = slack_message + \
+                        '>%s: %s\n' % (key, fitshdr[key])
+            self.slack.send_message(slack_message)
+
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+        finally:
+            self.preview = preview_old
 
     def get_weather(self, command, user):
         base_url = self.config.get('weatherbit', 'base_url')
@@ -1393,6 +1729,16 @@ class IxchelCommand:
             self.lock.release()
         return
 
+    def get_fitsFname(self, target, filter, time, bin, user, index, hdr):
+        fname = '%s_%s_%ss_bin%s%s_%s_%s_seo_%d_RAW.fits' % (
+            target, filter, time, bin, hdr, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), user.lower(), index)
+        return fname
+
+    def get_fitsPath(self, user):
+        path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + '/' + \
+            datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + user.lower() + '/'
+        return path
+
     def init_commands(self):
         try:
             self.commands = [
@@ -1473,6 +1819,14 @@ class IxchelCommand:
                     'regex': r'^\\image\s([0-9\.]+)\s(1|2)\s(%s)(\s[0-9]+)?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.get_image,
                     'description': '`\\image <exposure (s)> <binning> <%s> <count>` takes an image. <count> defaults to 1.' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\psf\s([0-9\.]+)\s(1|2)\s(%s)?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'function': self.get_psf,
+                    'description': '`\\psf <exposure (s)> <binning> <%s>` takes an image and calculates the PSF' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'hide': False,
                     'lock': True
                 },
@@ -1580,6 +1934,15 @@ class IxchelCommand:
                     'hide': False
                 },
 
+
+                {
+                    'regex': r'^\\status$',
+                    'function': self.get_status,
+                    'description': '`\\status` shows telescope status information',
+                    'hide': False,
+                    'lock': True
+                },
+
                 {
                     'regex': r'^\\clouds$',
                     'function': self.get_clouds,
@@ -1641,7 +2004,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\preview$',
                     'function': self.get_preview,
-                    'description': '`\\preview` shows the status of the FITS image preview',
+                    'description': '`\\preview` shows the on/off state of the FITS image preview',
                     'hide': False
                 },
 
@@ -1740,6 +2103,14 @@ class IxchelCommand:
                     'regex': r'^\\abort$',
                     'function': self.abort,
                     'description': '`\\abort` terminates the current task',
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\hocus$',
+                    'function': self.hocus,
+                    'description': '`\\hocus` calibrates the focus setting',
                     'hide': False,
                     'lock': True
                 }

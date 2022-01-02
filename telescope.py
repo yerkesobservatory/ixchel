@@ -252,6 +252,9 @@ class Telescope:
     def get_image(self, interface):
         self.setter(interface)
 
+    def get_psf(self, interface):
+        self.setter(interface)
+
     def convert_fits_to_jpg(self, interface):
         self.setter(interface)
 
@@ -331,6 +334,12 @@ class Telescope:
         self.setter(interface)
 
     def pinpoint(self, interface):
+        self.setter(interface)
+
+    def sextractor(self, interface):
+        self.setter(interface)
+
+    def psfex(self, interface):
         self.setter(interface)
 
     def offset(self, interface):

@@ -214,9 +214,9 @@ telescope_interfaces = {
                 'type': str
             },
             'drive': {
-                'regex': r'(?<=drive=).*?$',
+                'regex': r'(?<=drive=).*?(?= )',
                 'value': None,
-                'type': int
+                'type': float
             }
         }
     },

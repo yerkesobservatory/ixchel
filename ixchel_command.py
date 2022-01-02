@@ -744,7 +744,7 @@ class IxchelCommand:
             self.slack.send_message('>Pixels: %d x %d' % (nrow, ncol))
             self.slack.send_message('>Temperature: %.1f° C' % tchip)
             self.slack.send_message('>Set Point: %.1f° C' % setpoint)
-            self.slack.send_message('>Cooler Drive: %d%%' % drive)
+            self.slack.send_message('>Cooler Drive: %.1f' % drive)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1390,15 +1390,16 @@ class IxchelCommand:
                 focus_pos = self._set_focus(focus_pos)
 
                 # # pinpoint to the target. this could get touchy if focus is too far out!
-                # self.slack.send_message(
-                #     'Pinpointing the telescope to %s. Please wait...' % target[0])
-                # success = self._pinpoint(user, target[1], target[2])
-                # if success:
-                #     self.slack.send_message(
-                #         'Telescope successfully pinpointed to %s.' % target[0])
-                # else:
-                #     self.slack.send_message(
-                #         'Telescope failed to pinpoint to %s.' % target[0])
+                self.slack.send_message(
+                    'Pinpointing the telescope to %s. Please wait...' % target[0])
+                success = self._pinpoint(user, target[1], target[2])
+                if success:
+                    self.slack.send_message(
+                        'Telescope successfully pinpointed to %s.' % target[0])
+                else:
+                    self.slack.send_message(
+                        'Telescope failed to pinpoint to %s.' % target[0])
+                    continue
 
                 # get image
                 fname = self.get_fitsFname(
@@ -1453,7 +1454,7 @@ class IxchelCommand:
             self._set_focus(focus_pos_original)
 
             self.slack.send_message(
-                'Optimum focus is %d. Run `\focus %d` to set this value.' % (focus_pos, focus_pos))
+                'Optimum focus is %d. Run `\\focus %d` to set this value.' % (focus_pos, focus_pos))
 
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))

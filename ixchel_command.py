@@ -635,7 +635,7 @@ class IxchelCommand:
             rem = telescope_interface.get_output_value('rem')
             # send output to Slack
             self.slack.send_message(
-                'The dome is calibrated.')
+                'The dome is homed.')
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 

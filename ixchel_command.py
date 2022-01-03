@@ -639,6 +639,82 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
+    def get_lights(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_lights')
+            # query telescope
+            self.telescope.get_lights(telescope_interface)
+            # assign values
+            on_off = telescope_interface.get_output_value('on_off')
+            # send output to Slack
+            self.slack.send_message(
+                'The lights are %s.' % on_off.strip())
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def _set_lights(self, on_off):
+        try:
+            telescope_interface = TelescopeInterface('set_lights')
+            telescope_interface.set_input_value('on_off', on_off)
+            # query telescope
+            self.telescope.set_lights(telescope_interface)
+            # assign output values
+            return telescope_interface.get_output_value('on_off').strip()
+        except:
+            self.logger.error('Failed to turn the lights %s.' % on_off)
+            raise
+
+    def set_lights(self, command, user):
+        try:
+            # assign input values
+            on_off = command.group(1).strip()
+            on_off_status = self._set_lights(on_off)
+            success = (on_off_status.find(on_off) >= 0)
+            # send output to Slack
+            if success:
+                self.slack.send_message(
+                    'The lights are %s.' % on_off)
+            else:
+                self.slack.send_message(
+                    'Failed to turn the lights %s.' % on_off)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def get_mirror(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('get_mirror')
+            # query telescope
+            self.telescope.get_mirror(telescope_interface)
+            # assign values
+            open_close = telescope_interface.get_output_value('open_close')
+            # send output to Slack
+            self.slack.send_message(
+                'The mirror cover is %s.' % open_close.strip())
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def set_mirror(self, command, user):
+        try:
+            telescope_interface = TelescopeInterface('set_mirror')
+            # assign input values
+            open_close = command.group(1).strip()
+            telescope_interface.set_input_value('open_close', open_close)
+            # query telescope
+            self.telescope.set_mirror(telescope_interface)
+            # assign output values
+            open_closed = telescope_interface.get_output_value(
+                'open_close').strip()
+            success = (open_closed.find(open_close) >= 0)
+            # send output to Slack
+            if success:
+                self.slack.send_message(
+                    'The mirror cover is %s.' % open_closed)
+            else:
+                self.slack.send_message(
+                    'Failed to %s the mirror cover.' % open_close)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def get_slit(self, command, user):
         try:
             telescope_interface = TelescopeInterface('get_slit')
@@ -668,7 +744,7 @@ class IxchelCommand:
                 self.slack.send_message('The slit is %s.' % open_closed)
             else:
                 self.slack.send_message(
-                    'Failed to %s slit.' % open_close)
+                    'Failed to %s the slit.' % open_close)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1157,7 +1233,7 @@ class IxchelCommand:
             self.telescope.unlock(telescope_interface)
             # send output to Slack
             self.slack.send_message(
-                'Telescope is unlocked.')
+                'Telescope is unlocked.')              
             self.resetSession()
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -2004,7 +2080,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\preview$',
                     'function': self.get_preview,
-                    'description': '`\\preview` shows the on/off state of the FITS image preview',
+                    'description': '`\\preview` shows the state of the FITS image preview',
                     'hide': False
                 },
 
@@ -2041,7 +2117,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\dark\s([0-9\.]+)\s(1|2)(\s[0-9]+)?$',
                     'function': self.get_dark,
-                    'description': '`\\dark <exposure (s)> <binning> <count>` takes a dark frame. <count> defaults to 1.',
+                    'description': '`\\dark <exposure (s)> <binning> <count>` takes a dark frame. <count> defaults to 1',
                     'hide': False,
                     'lock': True
                 },
@@ -2049,7 +2125,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\bias\s(1|2)(\s[0-9]+)?$',
                     'function': self.get_bias,
-                    'description': '`\\bias <binning> <count>` takes a bias frame. <count> defaults to 1.',
+                    'description': '`\\bias <binning> <count>` takes a bias frame. <count> defaults to 1',
                     'hide': False,
                     'lock': True
                 },
@@ -2062,16 +2138,46 @@ class IxchelCommand:
                 },
 
                 {
+                    'regex': r'^\\lights$',
+                    'function': self.get_lights,
+                    'description': '`\\lights` shows state of the dome lights',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\lights\s(on|off)$',
+                    'function': self.set_lights,
+                    'description': '`\\lights <on|off>` turns the dome lights on/off',
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
                     'regex': r'^\\slit$',
                     'function': self.get_slit,
-                    'description': '`\\slit` shows status of dome slit',
+                    'description': '`\\slit` shows state of the dome slit',
                     'hide': False
                 },
 
                 {
                     'regex': r'^\\slit\s(open|close)$',
                     'function': self.set_slit,
-                    'description': '`\\slit <open|close>` opens/closes the dome slit.',
+                    'description': '`\\slit <open|close>` opens/closes the dome slit',
+                    'hide': False,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\mirror$',
+                    'function': self.get_mirror,
+                    'description': '`\\mirror` shows state of the mirror cover',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\mirror\s(open|close)$',
+                    'function': self.set_mirror,
+                    'description': '`\\mirror <open|close>` opens/closes the mirror cover',
                     'hide': False,
                     'lock': True
                 },
@@ -2079,7 +2185,7 @@ class IxchelCommand:
                 {
                     'regex': r'^\\dome$',
                     'function': self.get_dome,
-                    'description': '`\\dome` shows dome slit azimuth',
+                    'description': '`\\dome` shows the dome slit azimuth',
                     'hide': False
                 },
 

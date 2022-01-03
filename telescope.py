@@ -282,6 +282,18 @@ class Telescope:
     def set_slit(self, interface):
         self.setter(interface)
 
+    def get_mirror(self, interface):
+        self.getter(interface)
+
+    def set_mirror(self, interface):
+        self.setter(interface)
+
+    def get_lights(self, interface):
+        self.getter(interface)
+
+    def set_lights(self, interface):
+        self.setter(interface)
+
     def get_ccd(self, interface):
         self.getter(interface)
 

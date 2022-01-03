@@ -158,6 +158,58 @@ telescope_interfaces = {
             }
         }
     },
+    'get_lights': {
+        'command': 'tx lamps',
+        'inputs': {},
+        'outputs': {
+            'on_off': {
+                'regex': r'(?<=one=).*?(?= )',
+                'value': None,
+                'type': str
+            }
+        }
+    },
+    'set_lights': {
+        'command': 'tx lamps one={on_off}',
+        'inputs': {
+            'on_off': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'on_off': {
+                'regex': r'(?<=one=).*?(?= )',
+                'value': None,
+                'type': str
+            }
+        }
+    },
+    'get_mirror': {
+        'command': 'tx mirror',
+        'inputs': {},
+        'outputs': {
+            'open_close': {
+                'regex': r'(?<=state=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
+    'set_mirror': {
+        'command': 'tx mirror {open_close}',
+        'inputs': {
+            'open_close': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'open_close': {
+                'regex': r'(?<=state=).*?$',
+                'value': None,
+                'type': str
+            }
+        }
+    },
     'get_slit': {
         'command': 'tx slit',
         'inputs': {},

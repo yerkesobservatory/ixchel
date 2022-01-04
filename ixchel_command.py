@@ -639,44 +639,79 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def get_lights(self, command, user):
+    def _get_lights(self):
         try:
             telescope_interface = TelescopeInterface('get_lights')
             # query telescope
             self.telescope.get_lights(telescope_interface)
             # assign values
-            on_off = telescope_interface.get_output_value('on_off')
-            # send output to Slack
-            self.slack.send_message(
-                'The lights are %s.' % on_off.strip())
+            on_offs = []
+            on_offs.append(telescope_interface.get_output_value('1_on_off'))
+            on_offs.append(telescope_interface.get_output_value('2_on_off'))
+            on_offs.append(telescope_interface.get_output_value('3_on_off'))
+            on_offs.append(telescope_interface.get_output_value('4_on_off'))
+            on_offs.append(telescope_interface.get_output_value('5_on_off'))
+            on_offs.append(telescope_interface.get_output_value('6_on_off'))
+            on_offs.append(telescope_interface.get_output_value('7_on_off'))
+            on_offs.append(telescope_interface.get_output_value('8_on_off'))
+            return on_offs
+        except Exception as e:
+            raise Exception('Failed to get the statuses of the dome lights.')
+
+    def get_lights(self, command, user):
+        try:
+            on_offs = self._get_lights()
+            self.slack.send_message('Lights:')
+            lights = self.config.get('telescope', 'lights').split('\n')
+            for light in lights:
+                (light_name, light_num) = light.split('|', 2)
+                self.slack.send_message('>%s: %s' % (
+                    light_name, on_offs[int(light_num)-1]))
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def _set_lights(self, on_off):
+    def get_light_names(self):
+        light_names = []
+        try:
+            lights = self.config.get('telescope', 'lights').split('\n')
+            for light in lights:
+                (light_name, light_num) = light.split('|', 2)
+                light_names.append(light_name)
+            return light_names
+        except Exception as e:
+            raise Exception('Failed to get the light names.')
+
+    def _set_lights(self, light_number, on_off):
         try:
             telescope_interface = TelescopeInterface('set_lights')
+            telescope_interface.set_input_value('light_number', light_number)
             telescope_interface.set_input_value('on_off', on_off)
             # query telescope
             self.telescope.set_lights(telescope_interface)
-            # assign output values
-            return telescope_interface.get_output_value('on_off').strip()
         except:
             self.logger.error('Failed to turn the lights %s.' % on_off)
             raise
 
     def set_lights(self, command, user):
+        light_number_words = ['zero', 'one', 'two', 'three',
+                              'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
         try:
             # assign input values
-            on_off = command.group(1).strip()
-            on_off_status = self._set_lights(on_off)
-            success = (on_off_status.find(on_off) >= 0)
-            # send output to Slack
-            if success:
-                self.slack.send_message(
-                    'The lights are %s.' % on_off)
-            else:
-                self.slack.send_message(
-                    'Failed to turn the lights %s.' % on_off)
+            light_name = command.group(1).strip()
+            on_off = command.group(2).strip()
+            lights = self.config.get('telescope', 'lights').split('\n')
+            success = True
+            for light in lights:
+                (_light_name, light_num) = light.split('|', 2)
+                if(light_name == 'all' or light_name == _light_name):
+                    self._set_lights(
+                        light_number_words[int(light_num)], on_off)
+            on_offs = self._get_lights()
+            self.slack.send_message('Lights:')
+            for light in lights:
+                (_light_name, light_num) = light.split('|', 2)
+                self.slack.send_message('>%s: %s' % (
+                    _light_name, on_offs[int(light_num)-1]))
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1233,7 +1268,7 @@ class IxchelCommand:
             self.telescope.unlock(telescope_interface)
             # send output to Slack
             self.slack.send_message(
-                'Telescope is unlocked.')              
+                'Telescope is unlocked.')
             self.resetSession()
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -2145,9 +2180,9 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\lights\s(on|off)$',
+                    'regex': r'^\\lights\s(%s|all)\s(on|off)$' % '|'.join(self.get_light_names()),
                     'function': self.set_lights,
-                    'description': '`\\lights <on|off>` turns the dome lights on/off',
+                    'description': '`\\lights <%s|all> <on|off>` turns the dome lights on/off' % '|'.join(self.get_light_names()),
                     'hide': False,
                     'lock': True
                 },

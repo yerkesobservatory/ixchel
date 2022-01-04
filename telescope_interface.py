@@ -162,16 +162,54 @@ telescope_interfaces = {
         'command': 'tx lamps',
         'inputs': {},
         'outputs': {
-            'on_off': {
+            '1_on_off': {
                 'regex': r'(?<=one=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            '2_on_off': {
+                'regex': r'(?<=two=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            '3_on_off': {
+                'regex': r'(?<=three=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            '4_on_off': {
+                'regex': r'(?<=four=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            '5_on_off': {
+                'regex': r'(?<=five=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            '6_on_off': {
+                'regex': r'(?<=six=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            '7_on_off': {
+                'regex': r'(?<=seven=).*?(?= )',
+                'value': None,
+                'type': str
+            },
+            '8_on_off': {
+                'regex': r'(?<=eight=).*?$',
                 'value': None,
                 'type': str
             }
         }
     },
     'set_lights': {
-        'command': 'tx lamps one={on_off}',
+        'command': 'tx lamps {light_number}={on_off}',
         'inputs': {
+            'light_number': {
+                'value': None
+            },
             'on_off': {
                 'value': None
             }

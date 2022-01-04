@@ -17,3 +17,6 @@ class Config:
                 'Configuration option (%s/%s) not found. Returning default value (%s).' % (
                     section, option, str(default)))
             return default
+
+    def exists(self, section, option):
+        return self.config.has_option(section, option)

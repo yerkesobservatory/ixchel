@@ -1385,9 +1385,40 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
+    def get_domecam(self, command, user):
+        # get sky image from SEO camera
+        try:
+            self.slack.send_message(
+                'Taking dome camera image. Please wait...')
+            telescope_interface = TelescopeInterface('get_domecam')
+            # assign input
+            telescope_interface.set_input_value('domecam_image_url', self.config.get(
+                'telescope', 'domecam_image_url'))
+            telescope_interface.set_input_value('domecam_remote_file_path', self.config.get(
+                'telescope', 'domecam_remote_file_path'))
+            # create a command that applies the specified values
+            self.telescope.get_domecam(telescope_interface)
+            if telescope_interface.get_output_value('success'):
+                success = self.telescope.get_file(self.config.get(
+                    'telescope', 'domecam_remote_file_path'), self.config.get('telescope', 'domecam_local_file_path'))
+                if success:
+                    self.slack.send_file(self.config.get(
+                        'telescope', 'domecam_local_file_path'), 'El Verano, CA (SEO Dome-Cam)')
+                else:
+                    self.logger.error(
+                        'Failed to obtain image from observatory dome camera.')
+            else:
+                self.logger.error(
+                    'Failed to obtain image from observatory dome camera.')
+        except Exception as e:
+            self.logger.error(
+                'Failed to obtain image from observatory dome camera. Exception (%s).' % (e))
+
     def get_skycam(self, command, user):
         # get sky image from SEO camera
         try:
+            self.slack.send_message(
+                'Obtaining skycam image(s). Please wait...')
             telescope_interface = TelescopeInterface('get_skycam')
             # assign input
             telescope_interface.set_input_value('skycam_remote_file_path', self.config.get(
@@ -1413,7 +1444,11 @@ class IxchelCommand:
                 'Failed to obtain image from observatory camera. Exception (%s).' % (e))
         # get sky images from Internet
         try:
-            skycam_links = self.config.get('misc', 'skycam_links').split('\n')
+            # skip if there are no images to grab
+            if not self.config.exists('misc', 'skycam_links'):
+                return
+            skycam_links = self.config.get(
+                'misc', 'skycam_links', '').split('\n')
             for skycam_link in skycam_links:
                 (title, url) = skycam_link.split('|', 2)
                 # hack to keep images up to date
@@ -2146,6 +2181,13 @@ class IxchelCommand:
                     'regex': r'^\\skycam$',
                     'function': self.get_skycam,
                     'description': '`\\skycam` shows skycam image(s)',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\domecam$',
+                    'function': self.get_domecam,
+                    'description': '`\\domecam` shows the observatory dome camera image',
                     'hide': False
                 },
 

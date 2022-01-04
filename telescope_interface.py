@@ -346,6 +346,24 @@ telescope_interfaces = {
             },
         }
     },
+    'get_domecam': {
+        'command': 'curl --progress-bar -o {domecam_remote_file_path} {domecam_image_url}',
+        'inputs': {
+            'domecam_image_url': {
+                'value': None
+            },
+            'domecam_remote_file_path': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'success': {
+                'regex': r'100\.0',
+                'value': None,
+                'type': str
+            },
+        }
+    },
     'to_stars': {
         'command': 'bash -c "rsync -av --progress --files-from=<(find {image_dir} -mtime -3 -type f | sed -n \'s|^{image_dir}||p\') {image_dir} {stars_user}@{stars_url}:{stars_remote_dir}"',
         'is_background': False,

@@ -243,6 +243,9 @@ class Telescope:
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
+    def get_domecam(self, interface):
+        self.setter(interface)
+
     def get_skycam(self, interface):
         self.setter(interface)
 

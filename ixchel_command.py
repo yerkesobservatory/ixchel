@@ -87,7 +87,7 @@ class IxchelCommand:
         self.image_dir = self.config.get(
             'telescope', 'image_dir')
         # session states to save
-        self.hdr = False
+        self.hdr = True
         self.share = False
         self.target = 'unknown'
         self.preview = True
@@ -100,7 +100,7 @@ class IxchelCommand:
         self.coordinate = Coordinate(ixchel)
 
     def resetSession(self):
-        self.hdr = False
+        self.hdr = True
         self.share = False
         self.target = 'unknown'
         self.preview = True
@@ -495,6 +495,11 @@ class IxchelCommand:
                 self.slack.send_message('%s found %d match(es):' % (
                     self.config.get('slack', 'bot_name'), len(self.skyObjects)))
                 for skyObject in self.skyObjects:
+                    # check for abort
+                    if self.getDoAbort():
+                        self.slack.send_message('Search aborted.')
+                        self.setDoAbort(False)
+                        return
                     # create SkyCoord instance from RA and DEC
                     c = SkyCoord(skyObject.ra, skyObject.dec,
                                  unit=(u.hour, u.deg))

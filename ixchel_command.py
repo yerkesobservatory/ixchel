@@ -1947,19 +1947,19 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\pinpoint(\s[0-9]+)?$',
+                    'regex': r'^\\pinpoint(\s[0-9]+)?(\s[0-9\.]+)?(\s(?:%s))?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.pinpoint,
-                    'description': '`\\pinpoint <object #> or \\pinpoint <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` uses astrometry to point the telescope to an object (run `\\find` first!) or coordinate',
+                    'description': '`\\pinpoint <object #> <exposure (s)> <%s>` uses astrometry to point the telescope to an object (run `\\find` first!). <object #> defaults to 1. <exposure> defaults to 10. <filter> defaults to clear.' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'hide': False,
                     'lock': True
                 },
 
                 {
                     # ra dec regex should be better
-                    'regex': r'^\\pinpoint(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)$',
+                    'regex': r'^\\pinpoint(\s[0-9\:\-\+\.]+)(\s[0-9\:\-\+\.]+)(\s[0-9\.]+)?(\s(?:%s))?$' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
                     'function': self.pinpoint_ra_dec,
-                    'description': '`\\pinpoint <RA> <DEC>` uses astrometry to point the telescope to a coordinate',
-                    'hide': True,
+                    'description': '`\\pinpoint <RA> <DEC> <exposure (s)> <%s>` uses astrometry to point the telescope to a coordinate. <exposure> defaults to 10. <filter> defaults to clear.' % '|'.join(self.config.get('telescope', 'filters').split('\n')),
+                    'hide': False,
                     'lock': True
                 },
 

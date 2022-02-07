@@ -254,10 +254,11 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def _pinpoint(self, _user, ra, dec):
+    def _pinpoint(self, _user, ra, dec, time, filter):
         # turn off HDR mode
         hdr = self.hdr
         self.hdr = False
+        original_filter = filter
         try:
             # astrometry parameters
             solve_field_path = self.config.get(
@@ -276,9 +277,9 @@ class IxchelCommand:
             min_dec_offset = float(self.config.get(
                 'pinpoint', 'min_dec_offset', 0.05))
             max_tries = int(self.config.get('pinpoint', 'max_tries', 5))
-            time = self.config.get('pinpoint', 'time', 10)
+            #time = self.config.get('pinpoint', 'time', 10)
             bin = self.config.get('pinpoint', 'bin', 2)
-            filter = self.config.get('pinpoint', 'filter', 'clear')
+            #filter = self.config.get('pinpoint', 'filter', 'clear')
             user = self.slack.get_user_by_id(
                 _user['id']).get('name', _user['id'])
 
@@ -334,6 +335,11 @@ class IxchelCommand:
                     self.slack_send_fits_file(path + fname, fname)
                 else:
                     self.hdr = hdr  # restore HDR setting
+                    # change filter back to original_filter
+                    if(original_filter != filter):
+                        result = self._set_filter(filter)
+                        self.logger.info('Filter changed from %s to %s.' % (
+                            original_filter, result))
                     self.logger.error(
                         'Error. Image command failed (%s).' % fname)
                     return False
@@ -401,6 +407,11 @@ class IxchelCommand:
 
         except Exception as e:
             self.hdr = hdr
+            # change filter back to original_filter
+            if(original_filter != filter):
+                result = self._set_filter(filter)
+                self.logger.info('Filter changed from %s to %s.' % (
+                    original_filter, result))
             raise Exception("Failed to _pinpoint the target")
 
     def pinpoint(self, command, user):
@@ -410,6 +421,16 @@ class IxchelCommand:
                 id = int(command.group(1).strip())
             else:
                 id = 1
+            # get exposure time; assume config value if none
+            if command.group(2):
+                time = float(command.group(2).strip())
+            else:
+                time = self.config.get('pinpoint', 'time', 10)
+            # get filter; assume config value if none
+            if command.group(3):
+                filter = command.group(3).strip()
+            else:
+                filter = self.config.get('pinpoint', 'filter', 'clear')
             # ensure object id is valid
             if id < 1 or id > len(self.skyObjects):
                 self.slack.send_message('%s does not recognize the object id (%d). Run \\find first!' % (
@@ -420,7 +441,8 @@ class IxchelCommand:
             skyObject = self.skyObjects[id-1]
             self.slack.send_message('%s is pinpointing the telescope to "%s". Please wait...' % (
                 self.config.get('slack', 'bot_name'), skyObject.name))
-            success = self._pinpoint(user, skyObject.ra, skyObject.dec)
+            success = self._pinpoint(
+                user, skyObject.ra, skyObject.dec, time, filter)
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to %s.' % skyObject.name)
@@ -436,9 +458,19 @@ class IxchelCommand:
             self.set_target()
             ra = command.group(1).strip()
             dec = command.group(2).strip()
+            # get exposure time; assume config value if none
+            if command.group(3):
+                time = float(command.group(3).strip())
+            else:
+                time = self.config.get('pinpoint', 'time', 10)
+            # get filter; assume config value if none
+            if command.group(4):
+                filter = command.group(4).strip()
+            else:
+                filter = self.config.get('pinpoint', 'filter', 'clear')
             self.slack.send_message('%s is pinpointing the telescope to RA=%s/DEC=%s. Please wait...' %
                                     (self.config.get('slack', 'bot_name'), ra, dec))
-            success = self._pinpoint(user, ra, dec)
+            success = self._pinpoint(user, ra, dec, time, filter)
             if success:
                 self.slack.send_message(
                     'Telescope successfully pinpointed to RA=%s/DEC=%s.' % (ra, dec))
@@ -1528,7 +1560,10 @@ class IxchelCommand:
                 # # pinpoint to the target. this could get touchy if focus is too far out!
                 self.slack.send_message(
                     'Pinpointing the telescope to %s. Please wait...' % target[0])
-                success = self._pinpoint(user, target[1], target[2])
+                time = self.config.get('pinpoint', 'time', 10)
+                filter = self.config.get('pinpoint', 'filter', 'clear')
+                success = self._pinpoint(
+                    user, target[1], target[2], time, filter)
                 if success:
                     self.slack.send_message(
                         'Telescope successfully pinpointed to %s.' % target[0])

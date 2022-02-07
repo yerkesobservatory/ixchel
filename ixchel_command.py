@@ -277,9 +277,7 @@ class IxchelCommand:
             min_dec_offset = float(self.config.get(
                 'pinpoint', 'min_dec_offset', 0.05))
             max_tries = int(self.config.get('pinpoint', 'max_tries', 5))
-            #time = self.config.get('pinpoint', 'time', 10)
             bin = self.config.get('pinpoint', 'bin', 2)
-            #filter = self.config.get('pinpoint', 'filter', 'clear')
             user = self.slack.get_user_by_id(
                 _user['id']).get('name', _user['id'])
 

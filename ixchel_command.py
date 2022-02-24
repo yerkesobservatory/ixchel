@@ -24,6 +24,7 @@ import random
 import string
 from pathlib import PurePosixPath
 import numpy as np
+import math
 import matplotlib
 matplotlib.use('Agg')  # don't need display
 
@@ -160,14 +161,43 @@ class IxchelCommand:
         self.logger.error('Command failed (%s). %s' % (command, error))
         self.slack.send_message('Error. Command (%s) failed.' % command)
 
-    def track(self, command, user):
+    def _track(self, on_off):
         try:
             telescope_interface = TelescopeInterface('track')
-            # assign values
-            on_off = command.group(1)
             telescope_interface.set_input_value('on_off', on_off)
             # create a command that applies the specified values
             self.telescope.track(telescope_interface)
+        except Exception as e:
+            raise Exception("Set track command failed.")
+
+    def track(self, command, user):
+        try:
+            # assign values
+            on_off = command.group(1)
+            self._track(on_off)
+            self.slack.send_message(
+                'Telescope tracking is %s.' % on_off.strip().lower())
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def _get_track(self):
+        try:
+            telescope_interface = TelescopeInterface('get_track')
+            self.telescope.get_track(telescope_interface)
+            # assign values
+            ha = telescope_interface.get_output_value('ha')
+            dec = telescope_interface.get_output_value('dec')
+            # create a command that applies the specified values
+            return (math.ceil(ha) != 0 or math.ceil(dec) != 0)
+        except Exception as e:
+            raise Exception("Get track command failed.")
+
+    def get_track(self, command, user):
+        try:
+            on_off = 'off'
+            isOn = self._get_track()
+            if(isOn):
+                on_off = 'on'
             self.slack.send_message(
                 'Telescope tracking is %s.' % on_off.strip().lower())
         except Exception as e:
@@ -1051,6 +1081,9 @@ class IxchelCommand:
                 'Failed to send the fits file (%s) to Slack.' % fits_file)
 
     def _get_image(self, exposure, bin, filter, path, fname, dark=False, low_fname=''):
+        # ping the tracking, if on - to avoid timeouts
+        if self._get_track():
+            self._track('on')
         # set filter
         self._set_filter(filter)
         # take image
@@ -1951,6 +1984,14 @@ class IxchelCommand:
                     'description': '`\\track <on/off>` toggles telescope tracking',
                     'hide': False,
                     'lock': True
+                },
+
+                {
+                    'regex': r'^\\track$',
+                    'function': self.get_track,
+                    'description': '`\\track` shows if telescope tracking is on/off',
+                    'hide': False,
+                    'lock': False
                 },
 
                 {

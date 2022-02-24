@@ -22,6 +22,26 @@ telescope_interfaces = {
             },
         }
     },
+    'get_track': {
+        'command': 'tx track',
+        'inputs': {
+            'on_off': {
+                'value': None
+            }
+        },
+        'outputs': {
+            'ha': {
+                'regex': r'(?<=ha=).*?(?= )',
+                'value': None,
+                'type': float
+            },
+            'dec': {
+                'regex': r'(?<=dec=).*?$',
+                'value': None,
+                'type': float
+            },
+        }
+    },
     'point': {
         'command': 'tx point ra={ra} dec={dec}',
         'inputs': {

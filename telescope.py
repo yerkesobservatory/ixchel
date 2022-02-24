@@ -348,6 +348,9 @@ class Telescope:
     def track(self, interface):
         self.setter(interface)
 
+    def get_track(self, interface):
+        self.setter(interface)
+
     def pinpoint(self, interface):
         self.setter(interface)
 

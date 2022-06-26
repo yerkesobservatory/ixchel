@@ -1,3 +1,9 @@
+"""
+
+The Config module manages access to the configuration parameters (stored in a file).
+
+"""
+
 import logging
 import configparser
 

@@ -1,3 +1,10 @@
+"""
+
+The Sky module abstracts solar system objects, celestial bodies, and artificial satellites into a SkyObject data structure.
+These classes are used to perform object searches (e.g. JPL HORIZON, SIMBAD, etc.) and determine object observability.
+
+"""
+
 from astropy.visualization import astropy_mpl_style
 import matplotlib.pyplot as plt
 import logging

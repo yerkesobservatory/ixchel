@@ -1,3 +1,12 @@
+"""
+
+The Ixchel module is the primary interface with users on Slack.
+It monitors the Slack channel for user input and passes commands to the
+IxchelCommand module. Ixchel also monitors (and resets) connections to Slack and
+the telescope host machine (aster) via ssh..
+
+"""
+
 from datetime import datetime
 import os
 import logging

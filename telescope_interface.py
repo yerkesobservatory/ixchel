@@ -1,3 +1,10 @@
+"""
+
+The TelescopeInterface module specifies the command line syntax associated with each telescope command,
+including the command, inputs, and expected outputs. These commands are executed by the Telescope module.
+
+"""
+
 import logging
 import re
 

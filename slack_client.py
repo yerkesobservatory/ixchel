@@ -1,3 +1,10 @@
+"""
+
+The Slack module wraps the Slack Python API to allow the Ixchel and IxchelCommand modules
+to send/receive data in the Slack channel.
+
+"""
+
 import logging
 import requests
 import json

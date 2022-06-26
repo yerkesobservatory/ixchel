@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 
+"""
+
+The IxchelCommand module translates user commands in the Slack channel to actions.
+These actions can be telescope commands or requesting information from APIs, like Weatherbit, ClearDarkSky, etc.
+Telescope commands are defined by the TelescopeInterface module.
+
+"""
+
 import threading
 import os
 import pathlib2

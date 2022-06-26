@@ -17,6 +17,7 @@ v1.0.1: get_ephemerides fixed
 v1.0:   bugfixes completed, planets/satellites accessible, too
 v0.9:   first release
 
+The original callhorizons module was tweaked by Matt Nowinski to provide orbital parameters not available in the default module.
 
 """
 

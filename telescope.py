@@ -1,3 +1,9 @@
+"""
+
+The Telescope module executes telescope commands via an SSH connection to the aster server (the SEO telescope host).
+
+"""
+
 import logging
 import paramiko
 import subprocess

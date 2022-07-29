@@ -392,7 +392,7 @@ telescope_interfaces = {
         }
     },
     'to_stars': {
-        'command': 'bash -c "rsync -av --progress --files-from=<(find {image_dir} -mtime -3 -type f | sed -n \'s|^{image_dir}||p\') {image_dir} {stars_user}@{stars_url}:{stars_remote_dir}"',
+        'command': 'bash -c "rsync -auvz --progress --files-from=<(find {image_dir} -mtime -3 -type f | sed -n \'s|^{image_dir}||p\') {image_dir} {stars_user}@{stars_url}:{stars_remote_dir}"',
         'is_background': False,
         'inputs': {
             'image_dir': {

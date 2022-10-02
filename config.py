@@ -26,3 +26,6 @@ class Config:
 
     def exists(self, section, option):
         return self.config.has_option(section, option)
+
+    def items(self, section):
+        return self.config.items(section)

@@ -353,7 +353,7 @@ class IxchelCommand:
             self.telescope.get_filter(telescope_interface)
             # assign values
             num = telescope_interface.get_output_value('num')
-            filters = self.config.get('telescope', 'filters').split('\n')
+            filters = ('telescope', 'filters').split('\n')
             original_filter = filters[num-1]
             # change filter to 'filter_for_pinpoint' if not already set
             if(original_filter != filter):
@@ -1533,6 +1533,17 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
+    def get_configure(self, command, user):
+        try:
+            self.slack.send_message('Configuration:')
+            slack_message = ''
+            for key, value in self.config.items('settings'):
+                slack_message = slack_message + \
+                        '>%s: %s\n' % (key, value)
+            self.slack.send_message(slack_message)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % (e))
+
     def hocus(self, command, user):
         try:
             # settings
@@ -2380,7 +2391,15 @@ class IxchelCommand:
                     'description': '`\\hocus` calibrates the focus setting',
                     'hide': False,
                     'lock': True
-                }
+                },
+
+                {
+                    'regex': r'^\\configure$',
+                    'function': self.get_configure,
+                    'description': '`\\configure` displays the advanced settings',
+                    'hide': False,
+                    'lock': False
+                }             
             ]
         except Exception as e:
             raise Exception(

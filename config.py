@@ -24,6 +24,14 @@ class Config:
                     section, option, str(default)))
             return default
 
+    def set(self, section, option, value):
+        if self.config.has_option(section, option):
+            self.config.set(section, option, str(value))
+        else:
+            self.logger.warning(
+                'Configuration option (%s/%s) not found.' % (
+                    section, option))          
+
     def exists(self, section, option):
         return self.config.has_option(section, option)
 

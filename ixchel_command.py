@@ -10,6 +10,7 @@ Telescope commands are defined by the TelescopeInterface module.
 
 import threading
 import os
+from xmlrpc.client import Boolean, boolean
 import pathlib2
 from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
@@ -81,6 +82,7 @@ class CommandThread:
 class IxchelCommand:
 
     commands = []
+    configure_commands = []
     skyObjects = []
     threads = []
 
@@ -882,25 +884,41 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def get_hdr(self, command, user):
+    def show_configuration_setting(self, setting):
         try:
-            if (self.hdr):
-                self.slack.send_message('HDR mode is on.')
-            else:
-                self.slack.send_message('HDR mode is off.')
+            value = self.config.get('configuration', setting)
+            if value == 'True':
+                value = 'on'
+            elif value == 'False':
+                value = 'off'
+            self.slack.send_message('Configuration setting `%s` is %s.'%(setting, value))
         except Exception as e:
-            self.handle_error(command.group(0), 'Exception (%s).' % e)
+            self.logger.error('Failed to get the configuration setting (%s).' % setting)
+            raise
 
     def set_hdr(self, command, user):
         try:
-            on_off = command.group(1)
+            setting = 'hdr'
+            on_off = command.group(2)
             if (on_off == 'on'):
-                self.hdr = True
+                self.config.set('configuration', setting, True)
             else:
-                self.hdr = False
-            self.get_hdr(command, user)
+                self.config.set('configuration', setting, False)
+            self.show_configuration_setting(setting)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def set_shutterfix(self, command, user):
+        try:
+            setting = 'shutterfix'
+            on_off = command.group(2)
+            if (on_off == 'on'):
+                self.config.set('configuration', setting, True)
+            else:
+                self.config.set('configuration', setting, False)
+            self.show_configuration_setting(setting)           
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)            
 
     def share_lock(self, command, user):
         try:
@@ -1533,14 +1551,37 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
-    def get_configure(self, command, user):
+    def get_configuration_keys(self):
+        try:
+            configuration = dict(self.config.items('configuration'))
+            return list(configuration.keys())
+        except Exception as e:
+            raise Exception('Failed to get the configuration keys.')
+
+    def get_configuration(self, command, user):
         try:
             self.slack.send_message('Configuration:')
             slack_message = ''
-            for key, value in self.config.items('settings'):
+            for key, value in self.config.items('configuration'):
+                # keep the user interface consistent
+                if value == 'True':
+                    value = 'on'
+                elif value == 'False':
+                    value = 'off'
                 slack_message = slack_message + \
                         '>%s: %s\n' % (key, value)
             self.slack.send_message(slack_message)
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % (e))
+
+    def set_configuration(self, command, user):
+        try:
+            setting = command.group(1)
+            for cmd in self.configure_commands:
+                if cmd['setting'] == setting:
+                    params = re.search(cmd['regex'], command.group(2), re.IGNORECASE)
+                    if params:
+                        cmd['function'](command, user)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
@@ -2228,21 +2269,6 @@ class IxchelCommand:
                 },
 
                 {
-                    'regex': r'^\\hdr$',
-                    'function': self.get_hdr,
-                    'description': '`\\hdr` shows the status of the CCD HDR (High Dynamic Range) mode',
-                    'hide': False
-                },
-
-                {
-                    'regex': r'^\\hdr\s(on|off)$',
-                    'function': self.set_hdr,
-                    'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode',
-                    'hide': False,
-                    'lock': True
-                },
-
-                {
                     'regex': r'^\\preview$',
                     'function': self.get_preview,
                     'description': '`\\preview` shows the state of the FITS image preview',
@@ -2395,12 +2421,32 @@ class IxchelCommand:
 
                 {
                     'regex': r'^\\configure$',
-                    'function': self.get_configure,
-                    'description': '`\\configure` displays the advanced settings',
+                    'function': self.get_configuration,
+                    'description': '`\\configure` displays the configuration (advanced users only)',
                     'hide': False,
                     'lock': False
-                }             
+                },
+
+                {
+                    'regex': r'^\\configure\s(%s)\s(.+)$' % '|'.join(self.get_configuration_keys()),
+                    'function': self.set_configuration,
+                    'description': '`\\configure <setting> <value(s)>` sets the configuration (advanced users only)',
+                    'hide': False,
+                    'lock': False # change this back to True!
+                }              
             ]
+            self.configure_commands = [
+                {
+                    'setting': 'hdr',
+                    'regex': r'^(on|off)$',
+                    'function': self.set_hdr
+                },
+                {
+                    'setting': 'shutterfix',
+                    'regex': r'^(on|off)$',
+                    'function': self.set_shutterfix
+                }                
+            ]            
         except Exception as e:
             raise Exception(
                 'Failed to build list of commands. Exception (%s).' % e)

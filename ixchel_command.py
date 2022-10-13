@@ -675,15 +675,22 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def center_dome(self, command, user):
+    def _center_dome(self):
         try:
-            self.slack.send_message(
-                'Centering dome. Please wait...')
             telescope_interface = TelescopeInterface('center_dome')
             # query telescope
             self.telescope.center_dome(telescope_interface)
             # assign values
-            az = telescope_interface.get_output_value('az')
+            return telescope_interface.get_output_value('az')
+        except:
+            self.logger.error('Failed to center the dome.')
+            raise
+
+    def center_dome(self, command, user):
+        try:
+            self.slack.send_message(
+                'Centering dome. Please wait...')
+            az = self._center_dome()
             # send output to Slack
             self.slack.send_message(
                 'The dome slit is centered (az=%s°).' % az.strip())
@@ -990,7 +997,7 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
-    def get_filter(self, command, user):
+    def _get_filter(self):
         try:
             telescope_interface = TelescopeInterface('get_filter')
             # query telescope
@@ -998,7 +1005,14 @@ class IxchelCommand:
             # assign values
             num = telescope_interface.get_output_value('num')
             filters = self.config.get('telescope', 'filters').split('\n')
-            name = filters[num-1]
+            return filters[num-1]
+        except Exception as e:
+            self.logger.error('Failed to get the current filter.')
+            raise
+
+    def get_filter(self, command, user):
+        try:
+            name = self._get_filter()
             # send output to Slack
             self.slack.send_message('Filter is %s.' % name)
         except Exception as e:
@@ -1110,6 +1124,10 @@ class IxchelCommand:
         # ping the tracking, if on - to avoid timeouts
         if self._get_track():
             self._track('on')
+        # center the dome (hack)
+        if not dark:
+            self.logger.info('Centering the dome.') # remove this
+            self._center_dome()
         # set filter
         self._set_filter(filter)
         # take image
@@ -1142,6 +1160,9 @@ class IxchelCommand:
             while(index < count):
                 # check for abort
                 if self.getDoAbort():
+                    if self.config.get('configuration', 'shutterfix', False):
+                        self.logger.info('Closing the shutter.') # remove this
+                        self._close_shutter(user)                    
                     self.slack.send_message('Image sequence aborted.')
                     self.setDoAbort(False)
                     return
@@ -1169,6 +1190,9 @@ class IxchelCommand:
                     raise Exception(
                         'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
+            if self.config.get('configuration', 'shutterfix', False):
+                self.logger.info('Closing the shutter.') # remove this
+                self._close_shutter(user)
 
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
@@ -1231,23 +1255,13 @@ class IxchelCommand:
                 self.slack.send_message(
                     'Obtaining dark image (%d of %d). Please wait...' % (index+1, count))
                 if self.hdr:
-                    # fname = '%s_%s_%ss_bin%sH_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                     fname = self.get_fitsFname(
                         'dark', filter, exposure, bin, slack_user, index, 'H')
                 else:
-                    # fname = '%s_%s_%ss_bin%s_%s_%s_seo_%03d_RAW.fits.gz' % (
-                    #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                     fname = self.get_fitsFname(
                         'dark', filter, exposure, bin, slack_user, index, '')
-                # only gets used if self.hdr == True
-                # low_fname = '%s_%s_%ss_bin%sL_%s_%s_seo_%03d_RAW.fits.gz' % (
-                #     'dark', filter, exposure, bin, datetime.datetime.utcnow().strftime('%y%m%d_%H%M%S'), slack_user.lower(), index)
                 low_fname = self.get_fitsFname(
                     'dark', filter, exposure, bin, slack_user, index, 'L')
-                # path = self.image_dir + '/' + datetime.datetime.utcnow().strftime('%Y') + \
-                #     '/' + datetime.datetime.utcnow().strftime('%Y-%m-%d') + '/' + \
-                #     slack_user + '/'
                 path = self.get_fitsPath(slack_user)
                 success = self._get_image(
                     exposure, bin, filter, path, fname, True, low_fname)
@@ -1305,6 +1319,39 @@ class IxchelCommand:
                     raise Exception(
                         'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
+    def _close_shutter(self, user): # take a bias to force the mechanical shutter closed
+        try:
+            filter = self._get_filter() # don't change the current filter
+            exposure = self.config.get('telescope', 'exposure_for_bias')
+            bin = 16 # keep this file smallish
+            slack_user = self.slack.get_user_by_id(user['id']).get('name', user['id'])            
+            if self.hdr:
+                fname = self.get_fitsFname(
+                    'shutter', filter, exposure, bin, slack_user, 0, 'H')
+            else:
+                fname = self.get_fitsFname(
+                    'shutter', filter, exposure, bin, slack_user, 0, '')
+            low_fname = self.get_fitsFname(
+                'shutter', filter, exposure, bin, slack_user, 0, 'L')
+            path = self.get_fitsPath(slack_user)
+            return self._get_image(exposure, bin, filter, path, fname, True, low_fname)
+            # path = self.config.get('telescope', 'shutter_fix_path', '/tmp/')
+            # return self._get_image(exposure, bin, filter, path, 'shutterH.fits', True, 'shutterL.fits')            
+        except Exception as e:
+            self.logger.error('Failed to close the shutter.')
+            raise
+
+    def close_shutter(self, command, user):
+        try:
+            self.slack.send_message('Closing the shutter. Please wait...')            
+            success = self._close_shutter(user)
+            if success:
+                self.slack.send_message('Shutter closed successfully.')
+            else:
+                self.slack.send_message('Failed to close the shutter.')
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -1582,6 +1629,9 @@ class IxchelCommand:
                     params = re.search(cmd['regex'], command.group(2), re.IGNORECASE)
                     if params:
                         cmd['function'](command, user)
+                        return
+            self.slack.send_message(
+                '%s does not recognize your command (%s).' % (self.bot_name, command.group(0)))            
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % (e))
 
@@ -2432,15 +2482,18 @@ class IxchelCommand:
                     'function': self.set_configuration,
                     'description': '`\\configure <setting> <value(s)>` sets the configuration (advanced users only)',
                     'hide': False,
-                    'lock': False # change this back to True!
-                }              
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\shutter$',
+                    'function': self.close_shutter,
+                    'description': '`\shutter` manually closes the camera shutter',
+                    'hide': False,
+                    'lock': True
+                }                
             ]
             self.configure_commands = [
-                {
-                    'setting': 'hdr',
-                    'regex': r'^(on|off)$',
-                    'function': self.set_hdr
-                },
                 {
                     'setting': 'shutterfix',
                     'regex': r'^(on|off)$',

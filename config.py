@@ -14,6 +14,10 @@ class Config:
         self.logger = logging.getLogger('ixchel.Config')
         self.config = configparser.SafeConfigParser()
         self.config.read(cfg_file_path)
+        # let's hang on to the base settings too
+        # will be handy for reset_session and new \config command
+        self.base_config = configparser.SafeConfigParser()
+        self.base_config.read(cfg_file_path)
 
     def get(self, section, option, default=None):
         if self.config.has_option(section, option):
@@ -23,6 +27,15 @@ class Config:
                 'Configuration option (%s/%s) not found. Returning default value (%s).' % (
                     section, option, str(default)))
             return default
+
+    def get_base(self, section, option, default=None):
+        if self.base_config.has_option(section, option):
+            return self.base_config.get(section, option)
+        else:
+            self.logger.warning(
+                'Base configuration option (%s/%s) not found. Returning default value (%s).' % (
+                    section, option, str(default)))
+            return default        
 
     def set(self, section, option, value):
         if self.config.has_option(section, option):

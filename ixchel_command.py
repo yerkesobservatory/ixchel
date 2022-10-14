@@ -2066,6 +2066,11 @@ class IxchelCommand:
     def init_commands(self):
         try:
             self.commands = [
+                # For each command
+                # - regex: regexp to match a slack entry for this command
+                # - function: which IxchelCommand function to call
+                # - description: the help description as shown in slack
+                # - hide: weather command shows up in \help command
                 {
                     'regex': r'^\\find\s(.+)$',
                     'function': self.find,

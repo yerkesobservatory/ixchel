@@ -3,3 +3,6 @@
 *.pyc
 /ixchel.log
 /ixchel.rsa
+.project
+.pydevproject
+org.eclipse.core*

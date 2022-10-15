@@ -1126,7 +1126,7 @@ class IxchelCommand:
             self._track('on')
         # center the dome (hack)
         if not dark:
-            self.logger.info('Centering the dome.') # remove this
+            #self.logger.info('Centering the dome.') # remove this
             self._center_dome()
         # set filter
         self._set_filter(filter)
@@ -1161,7 +1161,7 @@ class IxchelCommand:
                 # check for abort
                 if self.getDoAbort():
                     if self.config.get('configuration', 'shutterfix', False):
-                        self.logger.info('Closing the shutter.') # remove this
+                        #self.logger.info('Closing the shutter.') # remove this
                         self._close_shutter(user)                    
                     self.slack.send_message('Image sequence aborted.')
                     self.setDoAbort(False)
@@ -1191,7 +1191,7 @@ class IxchelCommand:
                         'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
             if self.config.get('configuration', 'shutterfix', False):
-                self.logger.info('Closing the shutter.') # remove this
+                #self.logger.info('Closing the shutter.') # remove this
                 self._close_shutter(user)
 
         except Exception as e:

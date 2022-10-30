@@ -98,7 +98,7 @@ class IxchelCommand:
         self.image_dir = self.config.get(
             'telescope', 'image_dir')
         # session states to save
-        self.hdr = True
+        self.hdr = False
         self.share = False
         self.target = 'unknown'
         self.preview = True
@@ -111,7 +111,7 @@ class IxchelCommand:
         self.coordinate = Coordinate(ixchel)
 
     def resetSession(self):
-        self.hdr = True
+        self.hdr = False
         self.share = False
         self.target = 'unknown'
         self.preview = True
@@ -903,15 +903,23 @@ class IxchelCommand:
             self.logger.error('Failed to get the configuration setting (%s).' % setting)
             raise
 
+    def get_hdr(self, command, user):
+        try:
+            if (self.hdr):
+                self.slack.send_message('HDR mode is on.')
+            else:
+                self.slack.send_message('HDR mode is off.')
+        except Exception as e:
+            self.handle_error(command.group(0), 'Exception (%s).' % e)
+
     def set_hdr(self, command, user):
         try:
-            setting = 'hdr'
-            on_off = command.group(2)
+            on_off = command.group(1)
             if (on_off == 'on'):
-                self.config.set('configuration', setting, True)
+                self.hdr = True
             else:
-                self.config.set('configuration', setting, False)
-            self.show_configuration_setting(setting)
+                self.hdr = False
+            self.get_hdr(command, user)
         except Exception as e:
             self.handle_error(command.group(0), 'Exception (%s).' % e)
 
@@ -2320,6 +2328,21 @@ class IxchelCommand:
                     'function': self.set_ccd,
                     'description': '`\\ccd <cool|warm> <T (°C)>` cools/warms CCD to specified temperature, T',
                     'hide': True,
+                    'lock': True
+                },
+
+                {
+                    'regex': r'^\\hdr$',
+                    'function': self.get_hdr,
+                    'description': '`\\hdr` shows the status of the CCD HDR (High Dynamic Range) mode',
+                    'hide': False
+                },
+
+                {
+                    'regex': r'^\\hdr\s(on|off)$',
+                    'function': self.set_hdr,
+                    'description': '`\\hdr <on|off>` enables/disables the CCD HDR (High Dynamic Range) mode',
+                    'hide': False,
                     'lock': True
                 },
 

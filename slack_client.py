@@ -148,18 +148,27 @@ class Slack:
                 break
         return channel_id
 
-    def get_users(self):
-        try:
-            result = self.web.api_call("users.list")
-            return result['members']
-        except Exception as e:
-            self.logger.error(
-                'Failed to get user list. Exception (%s).' % e)
-            return []
+    # def get_users(self):
+    #     try:
+    #         result = self.web.api_call("users.list")
+    #         return result['members']
+    #     except Exception as e:
+    #         self.logger.error(
+    #             'Failed to get user list. Exception (%s).' % e)
+    #         return []
 
     def get_user_by_id(self, id):
-        for u in self.get_users():
-            if 'id' in u and u['id'] == id:
-                return u
-        self.logger.error('No user found with id = %s.' % id)
-        return {}
+        try:
+            # find this user    
+            params = dict()
+            params['user'] = id # identify user by id      
+            result = self.web.api_call('users.info', params = params)       
+            if 'error' in result: # ooops
+                self.logger.error('Failed to find user. Error (%s).' % result['error'])
+                return {}
+            else:           
+                return result['user']
+        except Exception as e:
+            self.logger.error(
+                'Failed to find user. Exception (%s).' % e)
+            return {}

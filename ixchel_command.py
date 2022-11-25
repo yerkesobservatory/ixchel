@@ -351,12 +351,7 @@ class IxchelCommand:
                 'Telescope successfully pointed to RA=%s/DEC=%s.' % (ra, dec))
 
             # get current filter setting
-            telescope_interface = TelescopeInterface('get_filter')
-            self.telescope.get_filter(telescope_interface)
-            # assign values
-            num = telescope_interface.get_output_value('num')
-            filters = ('telescope', 'filters').split('\n')
-            original_filter = filters[num-1]
+            original_filter = self._get_filter()
             # change filter to 'filter_for_pinpoint' if not already set
             if(original_filter != filter):
                 result = self._set_filter(filter)
@@ -1168,7 +1163,7 @@ class IxchelCommand:
             while(index < count):
                 # check for abort
                 if self.getDoAbort():
-                    if self.config.get('configuration', 'shutterfix', False):
+                    if self.config.get('configuration', 'shutterfix', 'False') == 'True':
                         #self.logger.info('Closing the shutter.') # remove this
                         self._close_shutter(user)                    
                     self.slack.send_message('Image sequence aborted.')
@@ -1198,8 +1193,7 @@ class IxchelCommand:
                     raise Exception(
                         'Failed to send the file (%s) to Slack.' % (path + fname))
                 index = index + 1
-            if self.config.get('configuration', 'shutterfix', False):
-                #self.logger.info('Closing the shutter.') # remove this
+            if self.config.get('configuration', 'shutterfix', 'False') == 'True':
                 self._close_shutter(user)
 
         except Exception as e:

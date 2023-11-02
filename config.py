@@ -28,6 +28,15 @@ class Config:
                     section, option, str(default)))
             return default
 
+    def getboolean(self, section, option, default=None):
+        if self.config.has_option(section, option):
+            return self.config.getboolean(section, option)
+        else:
+            self.logger.warning(
+                'Configuration option (%s/%s) not found. Returning default value (%s).' % (
+                    section, option, str(default)))
+            return default
+
     def get_base(self, section, option, default=None):
         if self.base_config.has_option(section, option):
             return self.base_config.get(section, option)

@@ -12,11 +12,11 @@ class Config:
 
     def __init__(self, cfg_file_path):
         self.logger = logging.getLogger('ixchel.Config')
-        self.config = configparser.SafeConfigParser()
+        self.config = configparser.ConfigParser()
         self.config.read(cfg_file_path)
         # let's hang on to the base settings too
         # will be handy for reset_session and new \config command
-        self.base_config = configparser.SafeConfigParser()
+        self.base_config = configparser.ConfigParser()
         self.base_config.read(cfg_file_path)
 
     def get(self, section, option, default=None):

@@ -5,19 +5,23 @@ The Telescope module executes telescope commands via an SSH connection to the as
 """
 
 import logging
+import threading
 import paramiko
 import subprocess
 import re
 from astropy.coordinates import EarthLocation
 import astropy.units as u
+from slack_client import Slack
+from config import Config
 
 
 class SSH:
-    def __init__(self, ixchel):
+    def __init__(self, config: Config, slack: Slack, lock: threading.Lock):
+        self.enabled = False
         self.logger = logging.getLogger('SSH')
-        self.ixchel = ixchel
-        self.config = ixchel.config
-        self.lock = ixchel.lock
+        self.config = config
+        self.lock = lock
+        self.slack = slack
         self.server = self.config.get('ssh', 'server')
         self.username = self.config.get('ssh', 'username')
         self.key_path = self.config.get('ssh', 'key_path')
@@ -27,15 +31,16 @@ class SSH:
 
     def connect(self):
         try:
-            self.ixchel.slack.send_message(
+            self.slack.send_message(
                 'Connecting to the telescope. Please wait...')
             self.ssh.connect(self.server, username=self.username,
                              key_filename=self.key_path)
             self.command('echo its alive', False)  # test the connection
-            self.ixchel.slack.send_message('Connected to the telescope!')
+            self.slack.send_message('Connected to the telescope!')
+            self.enabled = True
             return True
         except Exception as e:
-            self.ixchel.slack.send_message(
+            self.slack.send_message(
                 'Failed to connect to the telescope!')
             self.logger.error(
                 'SSH initialization failed. Exception (%s).' % e)
@@ -139,6 +144,9 @@ class SSH:
         return True
 
     def is_connected(self):
+        if not self.enabled:
+            self.logger.warning("SSH is disabled, yet tried to test connection.")
+            return True
         try:
             self.ssh.exec_command('echo its alive')  # test the connection
             return True
@@ -152,36 +160,28 @@ class Telescope:
 
     ssh = None
 
-    def __init__(self, ixchel):
+    def __init__(self, config: Config, slack: Slack, lock: threading.Lock):
         self.logger = logging.getLogger('Telescope')
-        self.ixchel = ixchel
-        self.config = ixchel.config
-        self.use_ssh = self.config.get('telescope', 'use_ssh', False)
+        self.slack = slack
+        self.config = config
+        self.use_ssh = self.config.getboolean('telescope', 'use_ssh', False)
+
+        self.logger.info("Should use SSH? %s", self.use_ssh)
+
         self.latitude = self.config.get('telescope', 'latitude')
         self.longitude = self.config.get('telescope', 'longitude')
         self.elevation = self.config.get('telescope', 'elevation')
         self.image_dir = self.config.get('telescope', 'image_dir')
         self.earthLocation = EarthLocation(lat=float(
             self.latitude)*u.deg, lon=float(self.longitude)*u.deg, height=float(self.elevation)*u.m)
+
+        # create ssh instance
+        self.ssh = SSH(config, slack, lock)
+        # enable the connection based on configuration
         if self.use_ssh:
-            self.ssh = SSH(ixchel)
             self.ssh.connect()
-
-    def init_ssh(self):
-        server = self.config.get('ssh', 'server')
-        username = self.config.get('ssh', 'username')
-        key_path = self.config.get('ssh', 'key_path')
-
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(server, username=username, key_filename=key_path)
-        try:
-            ssh.exec_command('echo its alive')  # test the connection
-            return ssh
-        except Exception as e:
-            self.logger.error(
-                'SSH initialization failed. Exception (%s).' % e)
-        return None
+        else:
+            self.slack.send_message("Telescope interface is running, but the SSH connection is currently disabled.")
 
     def command(self, command, is_background, use_communicate=True, timeout=0):
         result = {
@@ -221,8 +221,10 @@ class Telescope:
                     result['stdout'] = output.splitlines()
                     result['stderr'] = error.splitlines()
             except Exception as e:
+                if not self.use_ssh:
+                    self.slack.send_message('Command (%s) failed. Exception (%s).')
                 self.logger.error(
-                    'Command (%s) failed. Exception (%s).')
+                    'Command (%s) failed. Exception (%s).',)
             return result
 
     def get_file(self, remote_path, local_path):

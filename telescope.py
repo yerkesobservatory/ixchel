@@ -1,14 +1,12 @@
 """
-
-The Telescope module executes telescope commands via an SSH connection to the aster server (the SEO telescope host).
+Telescope executes telescope commands via an SSH connection to the aster server (the SEO telescope host).
 
 """
-
+import subprocess
+import re
 import logging
 import threading
 import paramiko
-import subprocess
-import re
 from astropy.coordinates import EarthLocation
 import astropy.units as u
 from slack_client import Slack
@@ -74,9 +72,7 @@ class SSH:
 
     def _command_background(self, command):
         """Background command execution"""
-        if (
-            not self.is_connected()
-        ):  # TODO: This will never be run, decide how to proceed
+        if not self.is_connected():  # TODO: This will never be run, decide how to proceed
             self.logger.error(
                 "Background command (%s) failed. SSH client is not connected.", command
             )
@@ -114,9 +110,7 @@ class SSH:
     def _command_foreground(self, command):
         """Foreground command execution"""
         self.logger.info(command)
-        if (
-            not self.is_connected()
-        ):  # TODO: This will never be run, decide how to proceed
+        if not self.is_connected():  # TODO: This will never be run, decide how to proceed
             self.logger.error(
                 "Foreground command (%s) failed. SSH client is not connected.", command
             )
@@ -231,7 +225,7 @@ class Telescope:
                 try:
                     self.ssh.command("echo its alive", is_background)
                 except Exception as e:
-                    self.logger.warn("SSH is not connected. Reconnecting...")
+                    self.logger.warning("SSH is not connected. Reconnecting...")
                     self.ssh.connect()
             try:
                 return self.ssh.command(command, is_background)

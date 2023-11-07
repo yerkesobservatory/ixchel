@@ -9,10 +9,6 @@ Telescope commands are defined by the TelescopeInterface module.
 """
 
 import threading
-import os
-from xmlrpc.client import Boolean, boolean
-import pathlib2
-from matplotlib.colors import LogNorm
 import matplotlib.pyplot as plt
 import logging
 import re
@@ -25,13 +21,10 @@ from telescope_interface import TelescopeInterface
 from astropy.coordinates import SkyCoord, Angle, AltAz
 import astropy.units as u
 from astropy.time import Time
-from astropy.utils.data import get_pkg_data_filename
 from astropy.io import fits
 from sky import Satellite, Celestial, SolarSystem, Coordinate
-import json
 import random
 import string
-from pathlib import PurePosixPath
 import numpy as np
 import math
 import matplotlib
@@ -104,10 +97,10 @@ class IxchelCommand:
         self.preview = True
         # build list of backslash commands
         self.init_commands()
-        # init the Sky interface
+        # init the Sky interface - why does this not use the Sky object?
         self.satellite = Satellite(ixchel)
         self.celestial = Celestial(ixchel)
-        self.solarSystem = SolarSystem(ixchel)
+        self.solar_system = SolarSystem(ixchel)
         self.coordinate = Coordinate(ixchel)
 
     def resetSession(self):
@@ -540,7 +533,7 @@ class IxchelCommand:
         self.slack.send_message('%s is calculating when "%s" is observable from your location. Please wait...' % (
             self.config.get('slack', 'bot_name'), skyObject.name))
         if skyObject.type == 'Solar System':
-            self.solarSystem.plot(skyObject)
+            self.solar_system.plot(skyObject)
         elif skyObject.type == "Celestial":
             self.celestial.plot(skyObject)
         elif skyObject.type == "Satellite":
@@ -554,7 +547,7 @@ class IxchelCommand:
                 self.config.get('slack', 'bot_name'), search_string))
             satellites = self.satellite.find(search_string)
             celestials = self.celestial.find(search_string)
-            solarSystems = self.solarSystem.find(search_string)
+            solarSystems = self.solar_system.find(search_string)
             # process total search restults
             self.skyObjects = satellites + celestials + solarSystems
             telescope = self.ixchel.telescope.earthLocation

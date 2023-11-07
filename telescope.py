@@ -16,9 +16,10 @@ from config import Config
 
 
 class SSH:
-    """ Manages connecting and executing commands over an SSH connection with
-        Aster / the telescope
+    """Manages connecting and executing commands over an SSH connection with
+    Aster / the telescope
     """
+
     def __init__(self, config: Config, slack: Slack, lock: threading.Lock):
         self.config = config
         self.lock = lock
@@ -26,39 +27,37 @@ class SSH:
 
         # defaults
         self.enabled = False
-        self.logger = logging.getLogger('SSH')
-        self.server = self.config.get('ssh', 'server')
-        self.username = self.config.get('ssh', 'username')
-        self.key_path = self.config.get('ssh', 'key_path')
+        self.logger = logging.getLogger("SSH")
+        self.server = self.config.get("ssh", "server")
+        self.username = self.config.get("ssh", "username")
+        self.key_path = self.config.get("ssh", "key_path")
 
         # init paramiko
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
     def connect(self):
-        """ Establish the SSH connection (configured at initialization)
+        """Establish the SSH connection (configured at initialization)
 
         Returns:
             bool: connection successful?
         """
         try:
-            self.slack.send_message(
-                'Connecting to the telescope. Please wait...')
-            self.ssh.connect(self.server, username=self.username,
-                             key_filename=self.key_path)
-            self.command('echo its alive', False)  # test the connection
-            self.slack.send_message('Connected to the telescope!')
+            self.slack.send_message("Connecting to the telescope. Please wait...")
+            self.ssh.connect(
+                self.server, username=self.username, key_filename=self.key_path
+            )
+            self.command("echo its alive", False)  # test the connection
+            self.slack.send_message("Connected to the telescope!")
             self.enabled = True
             return True
         except Exception as e:
-            self.slack.send_message(
-                'Failed to connect to the telescope!')
-            self.logger.error(
-                'SSH initialization failed. Exception (%s).', e)
+            self.slack.send_message("Failed to connect to the telescope!")
+            self.logger.error("SSH initialization failed. Exception (%s).", e)
         return False
 
     def command(self, command, is_background):
-        """ Execute a command over the SSH connection, 
+        """Execute a command over the SSH connection,
             either in the background or foreground
 
         Args:
@@ -74,89 +73,80 @@ class SSH:
         return self._command_foreground(command)
 
     def _command_background(self, command):
-        """ Background command execution
-        """
-        if not self.is_connected(): # TODO: This will never be run, decide how to proceed
+        """Background command execution"""
+        if (
+            not self.is_connected()
+        ):  # TODO: This will never be run, decide how to proceed
             self.logger.error(
-                'Background command (%s) failed. SSH client is not connected.', command)
+                "Background command (%s) failed. SSH client is not connected.", command
+            )
             return False
         # run command
-        result = {
-            'response': None,
-            'stdout': [],
-            'stderr': [],
-            'pid': None
-        }
+        result = {"response": None, "stdout": [], "stderr": [], "pid": None}
         try:
-            self.logger.info('Running background command: %s', command)
-            stdin, stdout, stderr = self.ssh.exec_command(f'{command} &')
+            self.logger.info("Running background command: %s", command)
+            stdin, stdout, stderr = self.ssh.exec_command(f"{command} &")
             stdout.channel.recv_exit_status()
-            result['stdout'] = stdout.readlines()
-            result['stderr'] = stderr.readlines()
-            self.logger.debug(result['stdout'])
-            self.logger.debug(result['stderr'])
-            if len(result['stdout']) > 0:
-                result['response'] = result['stdout'][0]
+            result["stdout"] = stdout.readlines()
+            result["stderr"] = stderr.readlines()
+            self.logger.debug(result["stdout"])
+            self.logger.debug(result["stderr"])
+            if len(result["stdout"]) > 0:
+                result["response"] = result["stdout"][0]
                 # get the pid
-                match = re.search(r'([0-9]+)$', result['response'])
+                match = re.search(r"([0-9]+)$", result["response"])
                 if match:
-                    result['pid'] = int(match.group(1))
+                    result["pid"] = int(match.group(1))
                 else:
-                    self.logger.error(
-                        'Command (%s) did not return a pid.', command)
-            elif len(result['stderr']) > 0:
-                result['response'] = result['stderr'][0]
-                self.logger.error('Command (%s) returned error (%s).',
-                    command, result['response'])
+                    self.logger.error("Command (%s) did not return a pid.", command)
+            elif len(result["stderr"]) > 0:
+                result["response"] = result["stderr"][0]
+                self.logger.error(
+                    "Command (%s) returned error (%s).", command, result["response"]
+                )
             else:
-                result['response'] = ''
-                self.logger.warning(
-                    'Command (%s) returned no response.', (command))
+                result["response"] = ""
+                self.logger.warning("Command (%s) returned no response.", (command))
         except Exception as e:
-            self.logger.error(
-                'SSH command failed. Exception (%s).', e)
+            self.logger.error("SSH command failed. Exception (%s).", e)
         return result
 
     def _command_foreground(self, command):
-        """ Foreground command execution
-        """
+        """Foreground command execution"""
         self.logger.info(command)
-        if not self.is_connected(): # TODO: This will never be run, decide how to proceed
+        if (
+            not self.is_connected()
+        ):  # TODO: This will never be run, decide how to proceed
             self.logger.error(
-                'Foreground command (%s) failed. SSH client is not connected.', command)
+                "Foreground command (%s) failed. SSH client is not connected.", command
+            )
             return False
         # run command
-        result = {
-            'response': None,
-            'stdout': [],
-            'stderr': [],
-            'pid': None
-        }
+        result = {"response": None, "stdout": [], "stderr": [], "pid": None}
         try:
-            self.logger.info('Running foreground command: %s', command)
+            self.logger.info("Running foreground command: %s", command)
             stdin, stdout, stderr = self.ssh.exec_command(command)
             stdout.channel.recv_exit_status()
-            result['stdout'] = stdout.readlines()
-            result['stderr'] = stderr.readlines()
-            self.logger.debug(result['stdout'])
-            self.logger.debug(result['stderr'])
-            if len(result['stdout']) > 0:
-                result['response'] = result['stdout']
-            elif len(result['stderr']) > 0:
-                result['response'] = result['stderr']
-                self.logger.error('Command (%s) returned error (%s).',
-                    command, result['response'])
+            result["stdout"] = stdout.readlines()
+            result["stderr"] = stderr.readlines()
+            self.logger.debug(result["stdout"])
+            self.logger.debug(result["stderr"])
+            if len(result["stdout"]) > 0:
+                result["response"] = result["stdout"]
+            elif len(result["stderr"]) > 0:
+                result["response"] = result["stderr"]
+                self.logger.error(
+                    "Command (%s) returned error (%s).", command, result["response"]
+                )
             else:
-                result['response'] = ['']
-                self.logger.warning(
-                    'Command (%s) returned no response.', command)
+                result["response"] = [""]
+                self.logger.warning("Command (%s) returned no response.", command)
         except Exception as e:
-            self.logger.error(
-                'SSH command failed. Exception (%s).', e)
+            self.logger.error("SSH command failed. Exception (%s).", e)
         return result
 
     def get_file(self, remote_path, local_path):
-        """ Retrieve a file over the SSH connection (using SFTP)
+        """Retrieve a file over the SSH connection (using SFTP)
 
         Args:
             remote_path (str): remote file path
@@ -166,19 +156,19 @@ class SSH:
             bool: transfer successful?
         """
         if not self.is_connected():
-            self.logger.error('SFTP failed. SSH client is not connected.')
+            self.logger.error("SFTP failed. SSH client is not connected.")
             return False
         try:
             sftp = self.ssh.open_sftp()
             sftp.get(remote_path, local_path)
             sftp.close()
         except Exception as e:
-            self.logger.error('SFTP failed. Exception (%s).', e)
+            self.logger.error("SFTP failed. Exception (%s).", e)
             return False
         return True
 
     def is_connected(self):
-        """ Test the SSH connection, and attempt to reconnect otherwise
+        """Test the SSH connection, and attempt to reconnect otherwise
 
         Returns:
             bool: connection successful? (also true if SSH is disabled)
@@ -187,32 +177,35 @@ class SSH:
             self.logger.warning("SSH is disabled, yet tried to test connection.")
             return True
         try:
-            self.ssh.exec_command('echo its alive')  # test the connection
+            self.ssh.exec_command("echo its alive")  # test the connection
             return True
         except Exception as e:  # try to reconnect
             self.logger.warning(
-                'SSH command failed. Exception (%s). Reconnecting...', e)
+                "SSH command failed. Exception (%s). Reconnecting...", e
+            )
             return self.connect()
 
 
 class Telescope:
-
     ssh = None
 
     def __init__(self, config: Config, slack: Slack, lock: threading.Lock):
-        self.logger = logging.getLogger('Telescope')
+        self.logger = logging.getLogger("Telescope")
         self.slack = slack
         self.config = config
-        self.use_ssh = self.config.getboolean('telescope', 'use_ssh', False)
+        self.use_ssh = self.config.getboolean("telescope", "use_ssh", False)
 
         self.logger.info("Should use SSH? %s", self.use_ssh)
 
-        self.latitude = self.config.get('telescope', 'latitude')
-        self.longitude = self.config.get('telescope', 'longitude')
-        self.elevation = self.config.get('telescope', 'elevation')
-        self.image_dir = self.config.get('telescope', 'image_dir')
-        self.earthLocation = EarthLocation(lat=float(
-            self.latitude)*u.deg, lon=float(self.longitude)*u.deg, height=float(self.elevation)*u.m)
+        self.latitude = self.config.get("telescope", "latitude")
+        self.longitude = self.config.get("telescope", "longitude")
+        self.elevation = self.config.get("telescope", "elevation")
+        self.image_dir = self.config.get("telescope", "image_dir")
+        self.earthLocation = EarthLocation(
+            lat=float(self.latitude) * u.deg,
+            lon=float(self.longitude) * u.deg,
+            height=float(self.elevation) * u.m,
+        )
 
         # create ssh instance
         self.ssh = SSH(config, slack, lock)
@@ -220,50 +213,48 @@ class Telescope:
         if self.use_ssh:
             self.ssh.connect()
         else:
-            self.slack.send_message("Telescope interface is running, but the SSH connection is currently disabled.")
+            self.slack.send_message(
+                "Telescope interface is running, but the SSH connection is currently disabled."
+            )
 
     def command(self, command, is_background, use_communicate=True, timeout=0):
-        result = {
-            'stdout': [],
-            'stderr': []
-        }
+        result = {"stdout": [], "stderr": []}
         # add a timeout to this command
         if timeout > 0:
-            command = 'timeout %f ' % timeout + command
+            command = "timeout %f " % timeout + command
         # use ssh
         if self.use_ssh:
             if self.ssh == None:  # not connected?
-                self.logger.warn(
-                    'SSH is not connected. Reconnecting...')
+                self.logger.warn("SSH is not connected. Reconnecting...")
                 self.ssh.connect()
             else:  # need to reconnect?
                 try:
-                    self.ssh.command('echo its alive', is_background)
+                    self.ssh.command("echo its alive", is_background)
                 except Exception as e:
-                    self.logger.warn(
-                        'SSH is not connected. Reconnecting...')
+                    self.logger.warn("SSH is not connected. Reconnecting...")
                     self.ssh.connect()
             try:
                 return self.ssh.command(command, is_background)
             except Exception as e:
-                self.logger.error(
-                    'Command (%s) via SSH failed. Exception (%s).')
+                self.logger.error("Command (%s) via SSH failed. Exception (%s).")
                 return result
         else:  # use local
             command_array = command.split()
             try:
                 sp = subprocess.Popen(
-                    command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+                    command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+                )
                 sp.wait()
                 if use_communicate:
-                    output, error = sp.communicate(b'\n\n')
-                    result['stdout'] = output.splitlines()
-                    result['stderr'] = error.splitlines()
+                    output, error = sp.communicate(b"\n\n")
+                    result["stdout"] = output.splitlines()
+                    result["stderr"] = error.splitlines()
             except Exception as e:
                 if not self.use_ssh:
-                    self.slack.send_message('Command (%s) failed. Exception (%s).')
+                    self.slack.send_message("Command (%s) failed. Exception (%s).")
                 self.logger.error(
-                    'Command (%s) failed. Exception (%s).',)
+                    "Command (%s) failed. Exception (%s).",
+                )
             return result
 
     def get_file(self, remote_path, local_path):
@@ -274,9 +265,8 @@ class Telescope:
     # these will be called by the *explicit* getter
 
     def getter(self, interface):
-        results = self.command(interface.get_command(),
-                               interface.is_background())
-        result = results['response']
+        results = self.command(interface.get_command(), interface.is_background())
+        result = results["response"]
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 
@@ -286,7 +276,7 @@ class Telescope:
     def setter(self, interface):
         command = interface.assign_inputs()
         results = self.command(command, interface.is_background())
-        result = results['response']
+        result = results["response"]
         # parse the result and assign values to output valuse
         interface.assign_outputs(result)
 

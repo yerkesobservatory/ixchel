@@ -45,9 +45,9 @@ class SSH:
             self.ssh.connect(
                 self.server, username=self.username, key_filename=self.key_path
             )
-            self.command("echo its alive", False)  # test the connection
+            self.ssh.exec_command("echo its alive")  # test the connection
             self.slack.send_message("Connected to the telescope!")
-            self.enabled = True
+            self.enabled = True # I would like to move this out of here, but it breaks Paramiko / puts the program in a loop
             return True
         except Exception as e:
             self.slack.send_message("Failed to connect to the telescope!")
@@ -72,7 +72,7 @@ class SSH:
 
     def _command_background(self, command):
         """Background command execution"""
-        if not self.is_connected():  # TODO: This will never be run, decide how to proceed
+        if not self.is_connected():
             self.logger.error(
                 "Background command (%s) failed. SSH client is not connected.", command
             )
@@ -110,7 +110,7 @@ class SSH:
     def _command_foreground(self, command):
         """Foreground command execution"""
         self.logger.info(command)
-        if not self.is_connected():  # TODO: This will never be run, decide how to proceed
+        if not self.is_connected():
             self.logger.error(
                 "Foreground command (%s) failed. SSH client is not connected.", command
             )
@@ -169,7 +169,7 @@ class SSH:
         """
         if not self.enabled:
             self.logger.warning("SSH is disabled, yet tried to test connection.")
-            return True
+            return False
         try:
             self.ssh.exec_command("echo its alive")  # test the connection
             return True
@@ -218,9 +218,10 @@ class Telescope:
             command = "timeout %f " % timeout + command
         # use ssh
         if self.use_ssh:
-            if self.ssh == None:  # not connected?
-                self.logger.warn("SSH is not connected. Reconnecting...")
-                self.ssh.connect()
+            if not self.ssh.is_connected():
+                self.logger.warning("SSH is not connected")
+                self.slack.send_message("Command could not be run, telescope SSH is currently disconnected.")
+                # self.ssh.connect()
             else:  # need to reconnect?
                 try:
                     self.ssh.command("echo its alive", is_background)
@@ -230,25 +231,27 @@ class Telescope:
             try:
                 return self.ssh.command(command, is_background)
             except Exception as e:
-                self.logger.error("Command (%s) via SSH failed. Exception (%s).")
+                self.logger.error("Command (%s) via SSH failed. Exception (%s).", command,  e)
                 return result
-        else:  # use local
-            command_array = command.split()
-            try:
-                sp = subprocess.Popen(
-                    command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE
-                )
-                sp.wait()
-                if use_communicate:
-                    output, error = sp.communicate(b"\n\n")
-                    result["stdout"] = output.splitlines()
-                    result["stderr"] = error.splitlines()
-            except Exception as e:
-                if not self.use_ssh:
-                    self.slack.send_message("Command (%s) failed. Exception (%s).")
-                self.logger.error(
-                    "Command (%s) failed. Exception (%s).",
-                )
+        else:
+            # Uses local execution -- Why are we trying this?
+            # self.logger.info("Attempting local command execution.")
+            # command_array = command.split()
+            # try:
+            #     sp = subprocess.Popen(
+            #         command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+            #     )
+            #     sp.wait()
+            #     if use_communicate: # What is communicate?
+            #         output, error = sp.communicate(b"\n\n")
+            #         result["stdout"] = output.splitlines()
+            #         result["stderr"] = error.splitlines()
+            # except Exception as e:
+            #     self.logger.error(
+            #         "Command (%s) failed. Exception (%s).", command,  e
+            #     )
+            self.slack.send_message("Command could not be run, telescope SSH is currently disabled.")
+
             return result
 
     def get_file(self, remote_path, local_path):

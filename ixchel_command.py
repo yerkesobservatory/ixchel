@@ -106,6 +106,11 @@ class IxchelCommand:
         self.target = "unknown"
         self.preview = True
 
+    def connect(self, command, error):
+        # Runs the SSH connect to see if the connection can now be established
+        # TODO: Make it so that it keeps trying in the background?
+        self.telescope.ssh.connect()
+
     def set_target(self, target="unknown"):
         self.target = target.strip().lower()  # lower case
         # replace non-alphanumerics
@@ -667,7 +672,7 @@ class IxchelCommand:
     def get_help(self, command, user):
         slack_user = self.slack.get_user_by_id(user["id"]).get("name", user["id"])
         help_message = (
-            self.config.get("slack", "help_message").format(
+            self.config.get("slack", "help_message").replace("\"", "").format(
                 bot_name=self.bot_name, user=slack_user
             )
             + "\n"
@@ -2272,6 +2277,12 @@ class IxchelCommand:
                 # - function: which IxchelCommand function to call
                 # - description: the help description as shown in slack
                 # - hide: weather command shows up in \help command
+                {
+                    "regex": r"^\\connect$",
+                    "function": self.connect,
+                    "description": "`\\connect` attempts to reconnect to the telescope via SSH.",
+                    "hide": True,
+                },
                 {
                     "regex": r"^\\find\s(.+)$",
                     "function": self.find,

@@ -60,7 +60,7 @@ class Ixchel:
         # the telescope
         self.telescope = Telescope(self.config, self.slack, self.lock)
         # init IxchelCommand
-        self.ixchel_commands = IxchelCommand(self)
+        self.ixchel_commands = IxchelCommand(self) # this is another circular dep I need to remove
 
     async def parse_message(self, **payload):
         message = payload['data']

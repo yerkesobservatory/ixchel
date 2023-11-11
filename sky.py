@@ -402,7 +402,7 @@ class Celestial:
         """
         celestials = []
         results = Simbad.query_object(search_string.upper().replace("*", ""))
-        if results != None:
+        if results is not None:
             for row in range(0, len(results)):
                 # why doesn't Simbad always return utf8?
                 try:

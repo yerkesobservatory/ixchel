@@ -216,7 +216,7 @@ class IxchelCommand:
             # create a command that applies the specified values
             return math.ceil(ha) != 0 or math.ceil(dec) != 0
         except Exception as e:
-            raise Exception("Get track command failed.")
+            raise Exception("Get track command failed.") from e
 
     def get_track(self, command, user):
         try:
@@ -672,9 +672,9 @@ class IxchelCommand:
     def get_help(self, command, user):
         slack_user = self.slack.get_user_by_id(user["id"]).get("name", user["id"])
         help_message = (
-            self.config.get("slack", "help_message").replace("\"", "").format(
-                bot_name=self.bot_name, user=slack_user
-            )
+            self.config.get("slack", "help_message")
+            .replace('"', "")
+            .format(bot_name=self.bot_name, user=slack_user)
             + "\n"
         )
         for cmd in sorted(self.commands, key=lambda i: i["regex"]):
@@ -2102,127 +2102,112 @@ class IxchelCommand:
             self.preview = preview_old
 
     def get_weather(self, command, user):
-        base_url = self.config.get("weatherbit", "base_url")
-        icon_base_url = self.config.get("weatherbit", "icon_base_url")
-        api_key = self.config.get("weatherbit", "api_key")
-        latitude = self.config.get("telescope", "latitude")
-        longitude = self.config.get("telescope", "longitude")
-        # user the OpenWeatherMap API
-        url = "%scurrent?lat=%s&lon=%s&units=I&key=%s" % (
-            base_url,
-            latitude,
-            longitude,
-            api_key,
-        )
+        """Gets the grid-based 48h weather forecast as an image, and sends it to Slack
+        """
+        # Show a nice forecast image from NWS
+        # This is the point forecast for the closest gridpoint to the telescope's coordinates (38.259, -122.440)
+        # Should this be moved to the config file?
+        url = "https://forecast.weather.gov/meteograms/Plotter.php?lat=38.259&lon=-122.44&wfo=MTR&zcode=CAZ506&gset=18&gdiff=3&unit=0&tinfo=PY8&ahour=0&pcmd=11011111111110100000000000000000000000000000000000000000000&lg=en&indu=1!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6"
         try:
-            r = requests.post(url)
-            if r.ok:
-                data = r.json()
-                weather = data.get("data")[0]
-                station = weather.get("city_name")
-                clouds = weather.get("clouds")
-                conditions = weather.get("weather").get("description")
-                temp = weather.get("temp")
-                wind_speed = weather.get("wind_spd")
-                wind_direction = weather.get("wind_cdir")
-                humidity = weather.get("rh")
-                icon_url = icon_base_url + weather.get("weather").get("icon") + ".png"
-                # send weather report to Slack
-                self.slack.send_message(
-                    "", [{"image_url": "%s" % icon_url, "title": "Current Weather:"}]
-                )
-                self.slack.send_message(">Station: %s" % station)
-                self.slack.send_message(">Conditions: %s" % conditions)
-                self.slack.send_message(">Temperature: %.1f° F" % temp)
-                self.slack.send_message(">Clouds: %0.1f%%" % clouds)
-                self.slack.send_message(">Wind Speed: %.1f mph" % wind_speed)
-                self.slack.send_message(">Wind Direction: %s" % wind_direction)
-                self.slack.send_message(">Humidity: %.1f%%" % humidity)
-            else:
-                self.handle_error(
-                    command.group(0),
-                    "Weatherbit API request (%s) failed (%d)." % (url, r.status_code),
-                )
+            self.slack.send_message(
+                "", blocks=[
+                            {
+                                "type": "context",
+                                "elements": [
+                                    {
+                                        "type": "mrkdwn",
+                                        "text": "*Point Forecast (Pacific Time)*: 2 Miles SSE Sonoma CA\n*Coordinates:* 38.27N 122.45W (Elev. 23 ft)"
+                                    }
+                                ]
+                            },
+                    		{
+                                "type": "image",
+                                "image_url": url,
+                                "alt_text": "Sonoma Weather Forecast"
+                            }
+                        ]
+            )
         except Exception as e:
             self.handle_error(
                 command.group(0),
-                "Weatherbit API request (%s) failed. Exception (%s)." % (url, e),
+                "NWS Image API request (%s) failed. Exception (%s)." % (url, e),
             )
 
-    # https://openweathermap.org/forecast5
+    # New NWS API
     def get_forecast(self, command, user):
-        base_url = self.config.get("openweathermap", "base_url")
-        icon_base_url = self.config.get("openweathermap", "icon_base_url")
-        api_key = self.config.get("openweathermap", "api_key")
-        max_forecasts = int(self.config.get("openweathermap", "max_forecasts", 5))
-        latitude = self.config.get("telescope", "latitude")
-        longitude = self.config.get("telescope", "longitude")
-        timezone = self.config.get("telescope", "timezone", "GMT")
-        # user the OpenWeatherMap API
-        url = "%sforecast?lat=%s&lon=%s&units=imperial&APPID=%s" % (
-            base_url,
-            latitude,
-            longitude,
-            api_key,
-        )
+        """Gets the hourly forecast for the next few hours, and writes it to Slack
+        """
+
+        # use the Weather.gov / NWS API
+        url = "https://api.weather.gov/gridpoints/MTR/88,127/forecast/hourly"
+        url_summaries = "https://api.weather.gov/gridpoints/MTR/88,127/forecast"
+
         try:
-            r = requests.post(url)
+            r = requests.get(url, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"})
+            time.sleep(1)
+            r_s = requests.get(url_summaries, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"})
         except Exception as e:
-            self.logger.error("OpenWeatherMap API request (%s) failed." % url)
+            self.logger.error("NWS API request (%s) failed." % url)
             self.handle_error(command.group(0), e)
             return
         if r.ok:
             data = r.json()
-            station = data.get("city").get("name", "Unknown")
-            forecasts = data.get("list")
-            self.slack.send_message("Weather Forecast:")
-            self.slack.send_message(">Station: %s" % station)
-            for forecast in forecasts[:max_forecasts]:
-                dt = datetime.datetime.utcfromtimestamp(
-                    forecast.get("dt", time.time())
-                ).replace(tzinfo=pytz.utc)
-                dt_local = dt.astimezone(pytz.timezone(timezone))
-                icon_url = (
-                    icon_base_url
-                    + forecast.get("weather")[0].get("icon", "01d")
-                    + ".png"
-                )
-                weather = forecast.get("weather")[0].get("main", "Unknown")
-                clouds = int(forecast.get("clouds").get("all", 0))
-                # self.slack.send_message('Date/Time: %s (%s)' % (dt_local.strftime(
-                #    "%A, %B %d, %Y %I:%M%p"), dt.strftime("%A, %B %d, %Y %I:%M%p UTC")))
-                dt_string = "%s (%s)" % (
-                    dt_local.strftime("%I:%M%p"),
-                    dt.strftime("%I:%M%p UTC"),
-                )
-                # self.slack.send_message('Clouds: %0.1f%%' % clouds)
-                if clouds > 0:
-                    self.slack.send_message(
-                        "",
-                        [
-                            {
-                                "image_url": "%s" % icon_url,
-                                "title": "%s (%d%%) @ %s"
-                                % (weather, clouds, dt_string),
-                            }
-                        ],
-                    )
+            forecasts = data["properties"]["periods"]
+            forecast_blocks = []
+
+            summary_text = "NWS Station MTR"
+
+            if r_s.ok:
+                data_s = r_s.json()
+                summary_text += "\n" + data_s["properties"]["periods"][0]["name"] + ": "
+                summary_text += data_s["properties"]["periods"][0]["detailedForecast"]
+
+            forecast_blocks.append({
+                            "type": "context",
+                            "elements": [
+                                {
+                                    "type": "plain_text",
+                                    "text": summary_text,
+                                    "emoji": True,
+                                }
+                            ],
+                        })
+
+            for forecast in forecasts[1:7]: # About the next five hours or so
+                dt_local = datetime.datetime.fromisoformat(forecast["startTime"])
+                dt_utc = dt_local.astimezone(pytz.timezone("UTC"))
+                dt_current = datetime.datetime.now().astimezone(pytz.timezone("US/Pacific"))
+                hours_diff = (dt_local - dt_current).seconds // 3600
+
+                if hours_diff == 23:
+                    diff_string = "*Last hour:*"
+                elif hours_diff == 0:
+                    diff_string = "*This hour:*"
                 else:
-                    self.slack.send_message(
-                        "",
-                        [
-                            {
-                                "image_url": "%s" % icon_url,
-                                "title": "%s @ %s" % (weather, dt_string),
-                            }
-                        ],
-                    )
-                time.sleep(1)  # don't trigger the Slack bandwidth threshold
+                    diff_string = "*In " + str(hours_diff) + " hour(s):*"
+
+
+                weather_desc = forecast["shortForecast"]
+                weather_temp = forecast["temperature"]
+                weather_precip = forecast["probabilityOfPrecipitation"]["value"]
+
+                forecast_blocks.append(
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text":  f"{diff_string}\t| *{weather_temp} F* | {weather_precip}% chance of rain | {weather_desc}",
+                        },
+                    }
+                )
+
+            self.slack.send_message("", blocks=forecast_blocks)
+
         else:
             self.logger.error(
-                "OpenWeatherMap API request (%s) failed (%d)." % (url, r.status_code)
+                "NWS API request (%s) failed (%d)." % (url, r.status_code)
             )
-            self.handle_error(command.group(0), e)
+            self.handle_error(command.group(0), (url, r.status_code))
 
     def getDoAbort(self):
         global doAbort

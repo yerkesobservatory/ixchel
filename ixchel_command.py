@@ -28,8 +28,14 @@ import string
 import numpy as np
 import math
 import matplotlib
+from backports.datetime_fromisoformat import MonkeyPatch
 
-matplotlib.use("Agg")  # don't need display
+# Ensure Python3.6 compatibility
+MonkeyPatch.patch_fromisoformat()
+
+# Don't need display...
+matplotlib.use("Agg")
+
 
 find_format_string = """[
 	{{

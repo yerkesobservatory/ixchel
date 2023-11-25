@@ -2106,27 +2106,20 @@ class IxchelCommand:
         """
         # Show a nice forecast image from NWS
         # This is the point forecast for the closest gridpoint to the telescope's coordinates (38.259, -122.440)
-        # Should this be moved to the config file?
-        url = "https://forecast.weather.gov/meteograms/Plotter.php?lat=38.259&lon=-122.44&wfo=MTR&zcode=CAZ506&gset=18&gdiff=3&unit=0&tinfo=PY8&ahour=0&pcmd=11011111111110100000000000000000000000000000000000000000000&lg=en&indu=1!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6"
+        url = self.config.get("weather", "weather_graph_url", "https://forecast.weather.gov/meteograms/Plotter.php?lat=38.259&lon=-122.44&wfo=MTR&zcode=CAZ506&gset=18&gdiff=3&unit=0&tinfo=PY8&ahour=0&pcmd=11011111111110100000000000000000000000000000000000000000000&lg=en&indu=1!1!1!&dd=&bw=&hrspan=48&pqpfhr=6&psnwhr=6")
+        weather_image_path = self.config.get("weather", "weather_graph_file_path", "./") + "weather.png"
+        
         try:
-            self.slack.send_message(
-                "", blocks=[
-                            {
-                                "type": "context",
-                                "elements": [
-                                    {
-                                        "type": "mrkdwn",
-                                        "text": "*Point Forecast (Pacific Time)*: 2 Miles SSE Sonoma CA\n*Coordinates:* 38.27N 122.45W (Elev. 23 ft)"
-                                    }
-                                ]
-                            },
-                    		{
-                                "type": "image",
-                                "image_url": url,
-                                "alt_text": "Sonoma Weather Forecast"
-                            }
-                        ]
-            )
+            r = requests.get(url, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"})
+            if r.ok:
+                # Open a file for the image
+                weather_image = open(weather_image_path, "wb")
+                # Write to the open file
+                weather_image.write(r.content)
+                weather_image.close()
+
+                self.slack.send_file(weather_image_path, "Point Forecast (PT): 2 Miles SSE Sonoma CA (38.27N 122.45W)")
+
         except Exception as e:
             self.handle_error(
                 command.group(0),
@@ -2139,8 +2132,8 @@ class IxchelCommand:
         """
 
         # use the Weather.gov / NWS API
-        url = "https://api.weather.gov/gridpoints/MTR/88,127/forecast/hourly"
-        url_summaries = "https://api.weather.gov/gridpoints/MTR/88,127/forecast"
+        url = self.config.get("weather", "gridpoint_hourly_url", "https://api.weather.gov/gridpoints/MTR/88,127/forecast/hourly")
+        url_summaries = self.config.get("weather", "gridpoint_summary_url", "https://api.weather.gov/gridpoints/MTR/88,127/forecast")
 
         try:
             r = requests.get(url, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"})

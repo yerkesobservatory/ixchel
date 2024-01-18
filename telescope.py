@@ -24,7 +24,7 @@ class SSH:
         self.slack = slack
 
         # defaults
-        self.enabled = False
+        self.enabled = self.config.get("telescope", "use_ssh")
         self.logger = logging.getLogger("SSH")
         self.server = self.config.get("ssh", "server")
         self.username = self.config.get("ssh", "username")
@@ -34,14 +34,15 @@ class SSH:
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    def connect(self):
+    def connect(self, silent=False):
         """Establish the SSH connection (configured at initialization)
 
         Returns:
             bool: connection successful?
         """
         try:
-            self.slack.send_message("Connecting to the telescope. Please wait...")
+            if not silent:
+                self.slack.send_message("Connecting to the telescope. Please wait...")
             self.ssh.connect(
                 self.server, username=self.username, key_filename=self.key_path
             )
@@ -50,7 +51,8 @@ class SSH:
             self.enabled = True # I would like to move this out of here, but it breaks Paramiko / puts the program in a loop
             return True
         except Exception as e:
-            self.slack.send_message("Failed to connect to the telescope!")
+            if not silent:
+                self.slack.send_message("Failed to connect to the telescope!")
             self.logger.error("SSH initialization failed. Exception (%s).", e)
         return False
 
@@ -177,7 +179,7 @@ class SSH:
             self.logger.warning(
                 "SSH command failed. Exception (%s). Reconnecting...", e
             )
-            return self.connect()
+            return self.connect(silent=True)
 
 
 class Telescope:
@@ -227,7 +229,7 @@ class Telescope:
                     self.ssh.command("echo its alive", is_background)
                 except Exception as e:
                     self.logger.warning("SSH is not connected. Reconnecting...")
-                    self.ssh.connect()
+                    self.ssh.connect(silent=True)
             try:
                 return self.ssh.command(command, is_background)
             except Exception as e:

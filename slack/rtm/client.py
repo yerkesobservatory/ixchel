@@ -371,6 +371,7 @@ class RTMClient(object):
             except (
                 client_err.SlackClientNotConnectedError,
                 client_err.SlackApiError,
+                asyncio.TimeoutError,
                 # TODO: Catch websocket exceptions thrown by aiohttp.
             ) as exception:
                 await self._dispatch_event(event="error", data=exception)

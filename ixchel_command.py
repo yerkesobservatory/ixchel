@@ -2265,7 +2265,7 @@ class IxchelCommand:
                     "regex": r"^\\connect$",
                     "function": self.connect,
                     "description": "`\\connect` attempts to reconnect to the telescope via SSH.",
-                    "hide": True,
+                    "hide": False,
                 },
                 {
                     "regex": r"^\\find\s(.+)$",
@@ -2412,7 +2412,7 @@ class IxchelCommand:
                 {
                     "regex": r"^\\forecast$",
                     "function": self.get_forecast,
-                    "description": "`\\forecast` shows the hourly weather forecast",
+                    "description": "`\\forecast` shows the grid-based 48-hour forecast",
                     "hide": False,
                 },
                 {
@@ -2448,7 +2448,7 @@ class IxchelCommand:
                 {
                     "regex": r"^\\weather$",
                     "function": self.get_weather,
-                    "description": "`\\weather` shows the current weather conditions",
+                    "description": "`\\weather` shows the current weather conditions, along with the next few hours of precipitation and cloud cover",
                     "hide": False,
                 },
                 {

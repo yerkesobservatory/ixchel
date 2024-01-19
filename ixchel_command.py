@@ -2107,7 +2107,7 @@ class IxchelCommand:
         finally:
             self.preview = preview_old
 
-    def get_weather(self, command, user):
+    def get_forecast(self, command, user):
         """Gets the grid-based 48h weather forecast as an image, and sends it to Slack
         """
         # Show a nice forecast image from NWS
@@ -2133,7 +2133,7 @@ class IxchelCommand:
             )
 
     # New NWS API
-    def get_forecast(self, command, user):
+    def get_weather(self, command, user):
         """Gets the hourly forecast for the next few hours, and writes it to Slack
         """
 

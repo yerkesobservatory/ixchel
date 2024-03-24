@@ -11,6 +11,7 @@ from astropy.coordinates import EarthLocation
 import astropy.units as u
 from slack_client import Slack
 from config import Config
+from globals import retry_counter
 
 
 class SSH:
@@ -41,13 +42,26 @@ class SSH:
             bool: connection successful?
         """
         try:
+            self.logger.info("Attempting telescope SSH connection...")
             if not silent:
                 self.slack.send_message("Connecting to the telescope. Please wait...")
+
+            # Some fiddling to say that we are still attempty to connect
+            # Should happen roughly every 30 minutes?
+            global retry_counter # Poor use of global variables, quicker fix until new version
+            if retry_counter > 10:
+                self.slack.send_message("Retrying connection to the telescope. Please wait...")
+                retry_counter = 0
+            else:
+                retry_counter += 1
+
             self.ssh.connect(
-                self.server, username=self.username, key_filename=self.key_path
+                self.server, username=self.username, key_filename=self.key_path, timeout=60
             )
+
             self.ssh.exec_command("echo its alive")  # test the connection
             self.slack.send_message("Connected to the telescope!")
+            
             self.enabled = True # I would like to move this out of here, but it breaks Paramiko / puts the program in a loop
             return True
         except Exception as e:
@@ -214,6 +228,7 @@ class Telescope:
             )
 
     def command(self, command, is_background, use_communicate=True, timeout=0):
+        self.logger.info("Attempting to run command, %s", command)
         result = {"stdout": [], "stderr": []}
         # add a timeout to this command
         if timeout > 0:
@@ -222,9 +237,9 @@ class Telescope:
         if self.use_ssh:
             if not self.ssh.is_connected():
                 self.logger.warning("SSH is not connected")
-                self.slack.send_message("Command could not be run, telescope SSH is currently disconnected.")
-                # self.ssh.connect()
-            else:  # need to reconnect?
+                # need to reconnect?
+                return
+            else:  
                 try:
                     self.ssh.command("echo its alive", is_background)
                 except Exception as e:
@@ -236,25 +251,7 @@ class Telescope:
                 self.logger.error("Command (%s) via SSH failed. Exception (%s).", command,  e)
                 return result
         else:
-            # Uses local execution -- Why are we trying this?
-            # self.logger.info("Attempting local command execution.")
-            # command_array = command.split()
-            # try:
-            #     sp = subprocess.Popen(
-            #         command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE
-            #     )
-            #     sp.wait()
-            #     if use_communicate: # What is communicate?
-            #         output, error = sp.communicate(b"\n\n")
-            #         result["stdout"] = output.splitlines()
-            #         result["stderr"] = error.splitlines()
-            # except Exception as e:
-            #     self.logger.error(
-            #         "Command (%s) failed. Exception (%s).", command,  e
-            #     )
-            self.slack.send_message("Command could not be run, telescope SSH is currently disabled.")
-
-            return result
+            raise ConnectionError("Telescope SSH is currently disconnected")
 
     def get_file(self, remote_path, local_path):
         return self.ssh.get_file(remote_path, local_path)

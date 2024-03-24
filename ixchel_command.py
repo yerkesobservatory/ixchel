@@ -190,7 +190,7 @@ class IxchelCommand:
 
     def handle_error(self, command, error):
         self.logger.error("Command failed (%s). %s", command, error)
-        self.slack.send_message(f"Error. Command ({command}) failed.")
+        self.slack.send_message(f"Error. Command ({command}) failed. {error}")
 
     def _track(self, on_off):
         try:
@@ -1574,18 +1574,18 @@ class IxchelCommand:
             self.handle_error(command.group(0), "Exception (%s)." % e)
 
     def locked_by(self):
-        try:
-            telescope_interface = TelescopeInterface("get_lock")
-            # query telescope
-            self.telescope.get_lock(telescope_interface)
-            # assign values
-            _user = telescope_interface.get_output_value("user")
-            self.logger.info("Telescope is locked by %s.", _user)
-            # assign values
-            return self.slack.get_user_by_id(_user).get("name", _user)
-        except Exception as e:
-            self.logger.error("Could not get telescope lock info. Exception (%s).", e)
-        return "unknown"
+        # try:
+        telescope_interface = TelescopeInterface("get_lock")
+        # query telescope
+        self.telescope.get_lock(telescope_interface)
+        # assign values
+        _user = telescope_interface.get_output_value("user")
+        self.logger.info("Telescope is locked by %s.", _user)
+        # assign values
+        return self.slack.get_user_by_id(_user).get("name", _user)
+        # except Exception as e:
+        #     self.logger.error("Could not get telescope lock info. Exception (%s).", e)
+        # return "unknown"
 
     def is_locked_by(self, user):
         try:
@@ -1710,6 +1710,7 @@ class IxchelCommand:
             self.logger.error(
                 "Failed to obtain image from observatory camera. Exception (%s)." % (e)
             )
+            self.handle_error(command.group(0), "Failed to obtain image from observatory camera. Exception (%s)." % (e))
         # get sky images from Internet
         try:
             # skip if there are no images to grab

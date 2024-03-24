@@ -1506,6 +1506,36 @@ class IxchelCommand:
             )
             self.slack.send_message(welcome_message)
             self.resetSession()
+
+            # Send a weather warning if necessary
+            url = self.config.get("weather", "gridpoint_hourly_url", "https://api.weather.gov/gridpoints/MTR/88,127/forecast/hourly")
+            try:
+                r = requests.get(url, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"}, timeout=25)
+            except Exception as e:
+                        self.logger.error("NWS API request (%s) failed.", url)
+            
+            if r.ok:
+                data = r.json()
+                forecasts = data["properties"]["periods"]
+
+                humidity = 0
+                precip = 0
+
+                for forecast in forecasts[1:2]:
+                    weather_humidity = forecast["relativeHumidity"]["value"]
+                    weather_precip = forecast["probabilityOfPrecipitation"]["value"]
+
+                    if weather_humidity > 90:
+                        humidity = weather_humidity
+                    
+                    if weather_precip > 9:
+                        precip = weather_precip
+                
+            if humidity > 0 or precip > 0:
+                self.slack.send_message("Please be careful! One or more of the current weather conditions is above the observing limit.")
+                self.slack.send_message(f"Precipitation: {precip}%, Relative Humidity: {humidity}%")
+
+
         except Exception as e:
             self.handle_error(command.group(0), "Exception (%s)." % e)
 
@@ -2187,7 +2217,7 @@ class IxchelCommand:
                     diff_string = "*In " + str(hours_diff) + " hour(s):*"
 
 
-                weather_desc = forecast["shortForecast"]
+                weather_humidity = forecast["relativeHumidity"]["value"]
                 weather_temp = forecast["temperature"]
                 weather_precip = forecast["probabilityOfPrecipitation"]["value"]
 
@@ -2196,7 +2226,7 @@ class IxchelCommand:
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text":  f"{diff_string}\t| *{weather_temp} F* | {weather_precip}% chance of rain | {weather_desc}",
+                            "text":  f"{diff_string}\t| *{weather_temp} F* | {weather_precip}% chance of rain | {weather_humidity}% rel. humidity",
                         },
                     }
                 )

@@ -1529,15 +1529,14 @@ class IxchelCommand:
                     
                     precip = weather_precip
                 
-            if humidity > 90 or precip > 9:
-                self.slack.send_message("", blocks=[{
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text":  f"*Please be careful!*  Current weather conditions are above the observing limit:\nPrecipitation: {precip}%, Relative Humidity: {humidity}%",
-                    },
-                }])
-
+                if humidity > 90 or precip > 9:
+                    self.slack.send_message("", blocks=[{
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text":  f"*Please be careful!*  Current weather conditions are above the observing limit:\nPrecipitation: {precip}%, Relative Humidity: {humidity}%",
+                        },
+                    }])
 
         except Exception as e:
             self.handle_error(command.group(0), "Exception (%s)." % e)

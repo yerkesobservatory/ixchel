@@ -1525,15 +1525,18 @@ class IxchelCommand:
                     weather_humidity = forecast["relativeHumidity"]["value"]
                     weather_precip = forecast["probabilityOfPrecipitation"]["value"]
 
-                    if weather_humidity > 90:
-                        humidity = weather_humidity
+                    humidity = weather_humidity
                     
-                    if weather_precip > 9:
-                        precip = weather_precip
+                    precip = weather_precip
                 
-            if humidity > 0 or precip > 0:
-                self.slack.send_message("Please be careful! One or more of the current weather conditions is above the observing limit.")
-                self.slack.send_message(f"Precipitation: {precip}%, Relative Humidity: {humidity}%")
+            if humidity > 90 or precip > 9:
+                self.slack.send_message("", blocks=[{
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text":  f"*Please be careful!*  Current weather conditions are above the observing limit:\nPrecipitation: {precip}%, Relative Humidity: {humidity}%",
+                    },
+                }])
 
 
         except Exception as e:

@@ -79,7 +79,7 @@ class Slack:
             return False
         return True
 
-    def send_message(self, message, attachments=None, channel=None, username=None):
+    def send_message(self, message, attachments=None, channel=None, username=None, blocks=None):
         if not self.connected:
             self.logger.warning(
                 'Could not send message (%s). Not connected.' % message)
@@ -93,6 +93,7 @@ class Slack:
             self.web.chat_postMessage(
                 channel=channel,
                 text=message,
+                blocks=blocks,
                 username=username,
                 attachments=attachments
             )

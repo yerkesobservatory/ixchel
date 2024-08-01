@@ -1014,6 +1014,7 @@ class TelescopeInterface:
                     self.logger.warning(
                         '%s value is missing (but optional).' % key)
                 else:
+                    # TODO: FIX THE PROBLEM WITH STRIP HERE?
                     self.logger.error(
                         '%s value is missing or invalid (%s).' % (key, result.strip()))
                     raise ValueError(

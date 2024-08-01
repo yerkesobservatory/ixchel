@@ -40,22 +40,27 @@ cfg_file_path = './cfg/ixchel.cfg'
 
 class Ixchel:
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.logger = logging.getLogger('Ixchel')
         # init config
         self.config = config
-        # init loc
-        self.lock = threading.Lock()
-        # init Slack interface
-        self.slack = Slack(self)
-        # the telescope
-        self.telescope = Telescope(self)
-        # init IxchelCommand
-        self.ixchel_commands = IxchelCommand(self)
         # update settings
         self.bot_name = self.config.get('slack', 'bot_name')
         self.channel = self.config.get('slack', 'channel_name')
         self.channel_id = self.config.get('slack', 'channel_id')
+        # manage development settings
+        self.production = self.config.get('general', 'production')
+        # init loc
+        self.lock = threading.Lock()
+        # init Slack interface
+        self.slack = Slack(self)
+        # send initial message
+        if self.slack.is_connected():
+            self.slack.send_message("%s is booting up!" % self.bot_name)
+        # the telescope
+        self.telescope = Telescope(self.config, self.slack, self.lock)
+        # init IxchelCommand
+        self.ixchel_commands = IxchelCommand(self) # this is another circular dep I need to remove
 
     async def parse_message(self, **payload):
         message = payload['data']
@@ -93,7 +98,8 @@ async def loop():  # main loop
     while True:
         try:
             logger.debug('Checking connections (Slack, telescope, etc.)...')
-            ixchel.telescope.ssh.is_connected()
+            if ixchel.telescope.use_ssh:
+                ixchel.telescope.ssh.is_connected()
             ixchel.slack.is_connected()
             await asyncio.sleep(10)
         except asyncio.CancelledError:

@@ -9,7 +9,6 @@ beautifulsoup4==4.11.1
 certifi==2022.9.24
 cffi==1.15.1
 charset-normalizer==2.1.1
-contourpy==1.0.5
 cryptography==38.0.1
 cycler==0.11.0
 ephem==4.1.3
@@ -43,3 +42,4 @@ soupsieve==2.3.2.post1
 urllib3==1.26.12
 webencodings==0.5.1
 yarl==1.8.1
+backports-datetime-fromisoformat==2.0.0

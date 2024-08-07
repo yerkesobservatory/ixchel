@@ -1048,11 +1048,11 @@ class IxchelCommand:
             drive = telescope_interface.get_output_value("drive")
             # send output to Slack
             self.slack.send_message("CCD:")
-            self.slack.send_message(">Type: %s" % name)
-            self.slack.send_message(">Pixels: %d x %d" % (nrow, ncol))
-            self.slack.send_message(">Temperature: %.1f° C" % tchip)
-            self.slack.send_message(">Set Point: %.1f° C" % setpoint)
-            self.slack.send_message(">Cooler Drive: %.1f %" % drive)
+            self.slack.send_message(f">Type: {name}")
+            self.slack.send_message(f">Pixels: {nrow} x {ncol}")
+            self.slack.send_message(f">Temperature: {tchip:.1f}° C")
+            self.slack.send_message(f">Set Point: {setpoint:.1f}° C")
+            self.slack.send_message(f">Cooler Drive: {drive:.1f}%")
         except Exception as e:
             self.handle_error(command.group(0), "Exception (%s)." % e)
 

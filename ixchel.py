@@ -8,6 +8,7 @@ the telescope host machine (aster) via ssh..
 """
 
 from datetime import datetime
+import argparse
 import os
 import logging
 import time
@@ -37,6 +38,15 @@ logger = logging.getLogger('ixchel')
 # config
 cfg_file_path = './cfg/ixchel.cfg'
 
+def init_argparse():
+    parser = argparse.ArgumentParser(
+        usage="%(progs)s [OPTION] [FILE]...",
+        description='Ixchel Slackbot for SEO interface.'
+    )
+    parser.add_argument(
+        '-c', '--config', nargs=1
+    )
+    return parser
 
 class Ixchel:
 
@@ -112,8 +122,15 @@ def cleanup(signum, frame):  # perform cleanup tasks
 
 logger.info('Starting ixchel...')
 
+# Parse command line
+parser = init_argparse()
+args = parser.parse_args()
+if args.config:
+    cfg_file_path = args.config[0]
+    logger.info('Found config argument: %s', cfg_file_path)
+
 # read configuration file
-logger.info('Reading configuration from file (%s)...' % cfg_file_path)
+logger.info('Reading configuration from file (%s)...', cfg_file_path)
 if not os.path.exists(cfg_file_path):
     raise Exception('Configuration file (%s) is missing.' % cfg_file_path)
 config = Config(cfg_file_path)

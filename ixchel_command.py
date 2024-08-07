@@ -1052,7 +1052,7 @@ class IxchelCommand:
             self.slack.send_message(">Pixels: %d x %d" % (nrow, ncol))
             self.slack.send_message(">Temperature: %.1f° C" % tchip)
             self.slack.send_message(">Set Point: %.1f° C" % setpoint)
-            self.slack.send_message(">Cooler Drive: %.1f %" % drive)
+            self.slack.send_message(">Cooler Drive: %.1f \%" % drive)
         except Exception as e:
             self.handle_error(command.group(0), "Exception (%s)." % e)
 

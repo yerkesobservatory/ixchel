@@ -36,6 +36,9 @@ MonkeyPatch.patch_fromisoformat()
 # Don't need display...
 matplotlib.use("Agg")
 
+# Force IPV4 in requests
+# (needed 2024-9-1 b/c Linode servers are unable to connect to api.weather.gov using IPV6
+requests.packages.urllib3.util.connection.HAS_IPV6 = False
 
 find_format_string = """[
 	{{

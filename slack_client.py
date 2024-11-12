@@ -11,8 +11,9 @@ import json
 import datetime
 import time
 import os
-import slack
-import slack.errors as client_err
+from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slack_sdk.errors import SlackApiError
 import asyncio
 import concurrent
 
@@ -22,7 +23,8 @@ class Slack:
         self.logger = logging.getLogger('Slack')
         self.ixchel = ixchel
         self.config = ixchel.config
-        self.token = self.config.get('slack', 'token')
+        self.bot_token = self.config.get('slack', 'bot_token')
+        self.app_token = self.config.get('slack', 'app_token')
         self.channel = self.config.get('slack', 'channel_name')
         self.bot_name = self.config.get('slack', 'bot_name')
         self.dt_last_ping = datetime.datetime.now()
@@ -32,11 +34,13 @@ class Slack:
         self.loop = asyncio.get_event_loop()
         # this is probably not needed anymore, but I am hanging on to it for now
         self.connected = True
-        # init the slack client (RTM and Web Client)
-        self.rtm = slack.RTMClient(
-            token=self.token, ping_interval=self.ping_delay_s, auto_reconnect=True, run_async=True)
-        self.web = slack.WebClient(
-            token=self.token, run_async=False, use_sync_aiohttp=False)
+        
+        # Establish the Slack app
+        self.app = App(token=self.bot_token)
+
+        # Create the RTM mode
+        self.handler = SocketModeHandler(self.app, self.app_token)
+
 
     # def send_typing(self, channel=None):
     #     # use default values if none sent
@@ -49,7 +53,7 @@ class Slack:
 
     def is_connected(self):
         try:
-            self.rtm.ping()
+            # self.app.client.ping()
             return True
         except client_err.SlackClientNotConnectedError as e:
             self.logger.error(
@@ -90,28 +94,28 @@ class Slack:
         if username == None:
             username = self.bot_name
         try:
-            self.web.chat_postMessage(
+            self.app.client.chat_postMessage(
                 channel=channel,
                 text=message,
                 blocks=blocks,
                 username=username,
                 attachments=attachments
             )
-            self.logger.info('Sent Slack message: %s.' % message)
+            self.logger.info('Sent Slack message: %s.', message)
         except Exception as e:
             self.logger.error(
-                'Could not send message (%s). Exception (%s).' % (message, e))
+                'Could not send message (%s). Exception (%s).', message, e)
             return False
         return True
 
     def send_file(self, path, title=None, channel=None, username=None):
         if not os.path.exists(path):
             self.logger.error(
-                'File (%s) does not exist.' % path)
+                'File (%s) does not exist.', path)
             return False
         if not self.connected:
             self.logger.warning(
-                'Could not send file (%s). Not connected.' % path)
+                'Could not send file (%s). Not connected.', path)
             return False
         # use default values if none sent
         if channel == None:
@@ -121,12 +125,12 @@ class Slack:
         try:
             files = {'file': open(path, 'rb')}
             data = {'channels': channel,
-                    'title': title, 'token': self.token}
+                    'title': title, 'token': self.bot_token} # TODO
             r = requests.post('https://slack.com/api/files.upload',
                               files=files, data=data)
         except Exception as e:
             self.logger.error(
-                'Could not send file (%s). Exception.' % (path, e))
+                'Could not send file (%s). Exception (%s).', path, e)
             return False
         return r.ok
 
@@ -136,7 +140,7 @@ class Slack:
             return result['channels']
         except Exception as e:
             self.logger.error(
-                'Failed to get channel list. Exception (%s).' % e)
+                'Failed to get channel list. Exception (%s).', e)
             return []
 
     def get_channel_id(self, channel):
@@ -144,8 +148,7 @@ class Slack:
         for ch in self.get_channels():
             if 'name' in ch and ch['name'] == channel:
                 channel_id = ch['id']
-                self.logger.info('Channel (%s) id is %s.' %
-                                 (channel, channel_id))
+                self.logger.info('Channel (%s) id is %s.', channel, channel_id)
                 break
         return channel_id
 
@@ -158,18 +161,18 @@ class Slack:
     #             'Failed to get user list. Exception (%s).' % e)
     #         return []
 
-    def get_user_by_id(self, id):
-        try:
-            # find this user    
-            params = dict()
-            params['user'] = id # identify user by id      
-            result = self.web.api_call('users.info', params = params)       
+    def get_user_by_id(self, uid):
+        try:  
+
+            # Look for the user's info
+            result = self.app.client.users_info(user=uid)
+            # self.logger.info(result)
             if 'error' in result: # ooops
-                self.logger.error('Failed to find user. Error (%s).' % result['error'])
+                self.logger.error('Failed to find user. Error (%s).', result['error'])
                 return {}
             else:           
                 return result['user']
         except Exception as e:
             self.logger.error(
-                'Failed to find user. Exception (%s).' % e)
+                'Failed to find user. Exception (%s).', e)
             return {}

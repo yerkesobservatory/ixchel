@@ -15,7 +15,6 @@ import time
 import datetime
 import json
 import re
-import slack
 import asyncio
 import signal
 import threading
@@ -72,16 +71,18 @@ class Ixchel:
         # init IxchelCommand
         self.ixchel_commands = IxchelCommand(self) # this is another circular dep I need to remove
 
-    async def parse_message(self, **payload):
-        message = payload['data']
+    def parse_message(self, message):
+        self.logger.info(message)
         # if 'username' in message:
         #     self.logger.debug(message['username'])
         # if 'user' in message:
         #     self.logger.debug(message['user'])
 
+        # This will not run with new message format
         # ignore any messages sent from this bot
-        if 'username' in message and message['username'] == self.bot_name:
-            return
+        # if 'username' in message and message['username'] == self.bot_name:
+        #     return
+
         # only process commands from the self.channel
         if 'channel' in message:
             # message posted in ixchel channel?
@@ -139,10 +140,10 @@ config = Config(cfg_file_path)
 ixchel = Ixchel(config)
 
 # call back for incoming messages
-ixchel.slack.rtm.on(event="message", callback=ixchel.parse_message)
+ixchel.slack.app.message(r'^\\\w+')(ixchel.parse_message)
 
 # run slack and main loop concurrently
-tasks = asyncio.gather(ixchel.slack.rtm.start(), loop())
+tasks = asyncio.gather(ixchel.slack.handler.start(), loop())
 
 # handle signals
 signal.signal(signal.SIGINT, cleanup)

@@ -26,6 +26,7 @@ class Slack:
         self.bot_token = self.config.get('slack', 'bot_token')
         self.app_token = self.config.get('slack', 'app_token')
         self.channel = self.config.get('slack', 'channel_name')
+        self.channel_id = self.config.get('slack', 'channel_id')
         self.bot_name = self.config.get('slack', 'bot_name')
         self.dt_last_ping = datetime.datetime.now()
         self.ping_delay_s = float(self.config.get('slack', 'ping_delay_s', 5))
@@ -67,13 +68,12 @@ class Slack:
             return False
         # use default values if none sent
         if channel == None:
-            channel = self.channel
+            channel = self.channel_id
         if username == None:
             username = self.bot_name
         try:
-            self.web.chat_postMessage(
+            self.app.client.chat_postMessage(
                 channel=channel,
-                # text=message,
                 blocks=json.loads(block_message),
                 username=username
             )
@@ -90,7 +90,7 @@ class Slack:
             return False
         # use default values if none sent
         if channel == None:
-            channel = self.channel
+            channel = self.channel_id
         if username == None:
             username = self.bot_name
         try:
@@ -119,38 +119,49 @@ class Slack:
             return False
         # use default values if none sent
         if channel == None:
-            channel = self.channel
+            channel = self.channel_id
         if username == None:
             username = self.bot_name
         try:
             files = {'file': open(path, 'rb')}
             data = {'channels': channel,
-                    'title': title, 'token': self.bot_token} # TODO
-            r = requests.post('https://slack.com/api/files.upload',
-                              files=files, data=data)
+                    'title': title, 'token': self.bot_token}
+            
+            # Attempt the file upload
+            response = self.app.client.files_upload_v2(
+                channel=channel,
+                file=path,
+                title=title
+            )
+            
+            if not response['ok']:
+                self.logger.error(
+                    'Could not send file (%s). Bad upload.', path)
+                return False
+
         except Exception as e:
             self.logger.error(
                 'Could not send file (%s). Exception (%s).', path, e)
             return False
-        return r.ok
+        return response['ok']
 
-    def get_channels(self):
-        try:
-            result = self.web.api_call("channels.list")
-            return result['channels']
-        except Exception as e:
-            self.logger.error(
-                'Failed to get channel list. Exception (%s).', e)
-            return []
+    # def get_channels(self):
+    #     try:
+    #         result = self.web.api_call("channels.list")
+    #         return result['channels']
+    #     except Exception as e:
+    #         self.logger.error(
+    #             'Failed to get channel list. Exception (%s).', e)
+    #         return []
 
-    def get_channel_id(self, channel):
-        channel_id = None
-        for ch in self.get_channels():
-            if 'name' in ch and ch['name'] == channel:
-                channel_id = ch['id']
-                self.logger.info('Channel (%s) id is %s.', channel, channel_id)
-                break
-        return channel_id
+    # def get_channel_id(self, channel):
+    #     channel_id = None
+    #     for ch in self.get_channels():
+    #         if 'name' in ch and ch['name'] == channel:
+    #             channel_id = ch['id']
+    #             self.logger.info('Channel (%s) id is %s.', channel, channel_id)
+    #             break
+    #     return channel_id
 
     # def get_users(self):
     #     try:

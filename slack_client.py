@@ -42,7 +42,7 @@ class Slack:
         # Create the socket mode handler
         self.handler = SocketModeHandler(self.app, self.app_token)
 
-    
+
     def is_connected(self):
         """ Checks whether we are currently to the Slack bot
 
@@ -56,6 +56,7 @@ class Slack:
             self.logger.error(
                 'Slack web client is not connected. Exception (%s).', e.response['error'])
             return False
+
 
     def send_block_message(self, block_message, channel=None, username=None):
         """ Sends a block-style message to the given Slack interface
@@ -91,6 +92,7 @@ class Slack:
                 'Could not send block message (%s). Exception (%s).', block_message, e)
             return False
         return True
+
 
     def send_message(self, message, attachments=None, channel=None, username=None, blocks=None):
         """ Sends a simple message to the given Slack interface
@@ -130,6 +132,7 @@ s
                 'Could not send message (%s). Exception (%s).', message, e)
             return False
         return True
+
 
     def send_file(self, path, title=None, channel=None, username=None):
         """ Sends a file to the given Slack interface
@@ -180,6 +183,7 @@ s
                 'Could not send file (%s). Exception (%s).', path, e)
             return False
         return response['ok']
+
 
     def get_user_by_id(self, uid):
         """ Finds a Slack user via their User ID

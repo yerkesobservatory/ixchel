@@ -6,19 +6,18 @@ to send/receive data in the Slack channel.
 """
 
 import logging
-import requests
 import json
 import datetime
-import time
 import os
+import asyncio
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
-import asyncio
-import concurrent
 
 
 class Slack:
+    """ Slack class is Ixchel's wrapper around the slack-bolt sdk
+    """
     def __init__(self, ixchel):
         self.logger = logging.getLogger('Slack')
         self.ixchel = ixchel
@@ -33,44 +32,54 @@ class Slack:
         self.reconnect_delay_s = float(self.config.get(
             'slack', 'reconnect_delay_s', 10))
         self.loop = asyncio.get_event_loop()
-        # this is probably not needed anymore, but I am hanging on to it for now
+
+        # This is probably not needed anymore, but I am hanging on to it for now
         self.connected = True
-        
+
         # Establish the Slack app
         self.app = App(token=self.bot_token)
 
-        # Create the RTM mode
+        # Create the socket mode handler
         self.handler = SocketModeHandler(self.app, self.app_token)
 
-
-    # def send_typing(self, channel=None):
-    #     # use default values if none sent
-    #     if channel == None:
-    #         channel = self.channel
-    #     try:
-    #         self.rtm.typing(channel)
-    #     except Exception as e:
-    #         self.logger.error('Could not send typing. Exception (%s).' % e)
-
+    
     def is_connected(self):
+        """ Checks whether we are currently to the Slack bot
+
+        Returns:
+            bool: whether or not we are connected
+        """
         try:
-            # self.app.client.ping()
+            self.app.client.auth_test()
             return True
-        except client_err.SlackClientNotConnectedError as e:
+        except SlackApiError as e:
             self.logger.error(
-                'Slack RTM client is not connected. Exception (%s).' % e)
+                'Slack web client is not connected. Exception (%s).', e.response['error'])
             return False
 
     def send_block_message(self, block_message, channel=None, username=None):
+        """ Sends a block-style message to the given Slack interface
+            (May not be used?)
+
+        Args:
+            block_message (dict): _description_
+            channel (string, optional): Channel ID to send to. Defaults to the bot's init value.
+            username (string, optional): Username to send with. Defaults to the bot's init value.
+
+        Returns:
+            bool: Send successful?
+        """
         if not self.connected:
             self.logger.warning(
-                'Could not send message (%s). Not connected.' % block_message)
+                'Could not send message (%s). Not connected.', block_message)
             return False
-        # use default values if none sent
-        if channel == None:
+
+        # Use default values if none sent
+        if channel is None:
             channel = self.channel_id
-        if username == None:
+        if username is None:
             username = self.bot_name
+
         try:
             self.app.client.chat_postMessage(
                 channel=channel,
@@ -79,20 +88,34 @@ class Slack:
             )
         except Exception as e:
             self.logger.error(
-                'Could not send block message (%s). Exception (%s).' % (block_message, e))
+                'Could not send block message (%s). Exception (%s).', block_message, e)
             return False
         return True
 
     def send_message(self, message, attachments=None, channel=None, username=None, blocks=None):
+        """ Sends a simple message to the given Slack interface
+
+        Args:
+            message (string): Message to be sent
+            attachments (dict, optional): Slack attachments object. Defaults to None.
+            channel (string, optional): Channel ID to send to. Defaults to the bot's init value.
+            username (string, optional): Username to send with. Defaults to the bot's init value.
+            blocks (dict, optional): _description_. Defaults to None.
+s
+        Returns:
+            bool: Send successful?
+        """
         if not self.connected:
             self.logger.warning(
-                'Could not send message (%s). Not connected.' % message)
+                'Could not send message (%s). Not connected.', message)
             return False
-        # use default values if none sent
-        if channel == None:
+
+        # Use default values if none sent
+        if channel is None:
             channel = self.channel_id
-        if username == None:
+        if username is None:
             username = self.bot_name
+
         try:
             self.app.client.chat_postMessage(
                 channel=channel,
@@ -109,6 +132,17 @@ class Slack:
         return True
 
     def send_file(self, path, title=None, channel=None, username=None):
+        """ Sends a file to the given Slack interface
+
+        Args:
+            path (string): filepath
+            title (string, optional): Title of the image to be displaced on Slack. Defaults to the filename.
+            channel (string, optional): Channel ID to send to. Defaults to the bot's init value.
+            username (string, optional): Username to send with. Defaults to the bot's init value.
+
+        Returns:
+            bool: Send successful?
+        """
         if not os.path.exists(path):
             self.logger.error(
                 'File (%s) does not exist.', path)
@@ -117,23 +151,25 @@ class Slack:
             self.logger.warning(
                 'Could not send file (%s). Not connected.', path)
             return False
-        # use default values if none sent
-        if channel == None:
+
+        # Use default values if none sent
+        if channel is None:
             channel = self.channel_id
-        if username == None:
+        if username is None:
             username = self.bot_name
+
         try:
             files = {'file': open(path, 'rb')}
             data = {'channels': channel,
                     'title': title, 'token': self.bot_token}
-            
-            # Attempt the file upload
+
+            # Attempt the file upload (New 2024 API)
             response = self.app.client.files_upload_v2(
                 channel=channel,
                 file=path,
                 title=title
             )
-            
+
             if not response['ok']:
                 self.logger.error(
                     'Could not send file (%s). Bad upload.', path)
@@ -145,44 +181,23 @@ class Slack:
             return False
         return response['ok']
 
-    # def get_channels(self):
-    #     try:
-    #         result = self.web.api_call("channels.list")
-    #         return result['channels']
-    #     except Exception as e:
-    #         self.logger.error(
-    #             'Failed to get channel list. Exception (%s).', e)
-    #         return []
-
-    # def get_channel_id(self, channel):
-    #     channel_id = None
-    #     for ch in self.get_channels():
-    #         if 'name' in ch and ch['name'] == channel:
-    #             channel_id = ch['id']
-    #             self.logger.info('Channel (%s) id is %s.', channel, channel_id)
-    #             break
-    #     return channel_id
-
-    # def get_users(self):
-    #     try:
-    #         result = self.web.api_call("users.list")
-    #         return result['members']
-    #     except Exception as e:
-    #         self.logger.error(
-    #             'Failed to get user list. Exception (%s).' % e)
-    #         return []
-
     def get_user_by_id(self, uid):
-        try:  
+        """ Finds a Slack user via their User ID
 
+        Args:
+            uid (string): Slack User ID
+
+        Returns:
+            dict : Slack user object, or {}
+        """
+        try:
             # Look for the user's info
             result = self.app.client.users_info(user=uid)
-            # self.logger.info(result)
             if 'error' in result: # ooops
                 self.logger.error('Failed to find user. Error (%s).', result['error'])
                 return {}
-            else:           
-                return result['user']
+            return result['user']
+
         except Exception as e:
             self.logger.error(
                 'Failed to find user. Exception (%s).', e)

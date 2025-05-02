@@ -733,7 +733,8 @@ class IxchelCommand:
             # assign values
             clouds = telescope_interface.get_output_value("clouds")
             # send output to Slack
-            self.slack.send_message("Cloud cover is %d%%." % int(clouds * 100))
+            # self.slack.send_message("Cloud cover is %d%%." % int(clouds * 100))
+            self.slack.send_message("Cloud sensor out of service. 😔")
         except Exception as e:
             self.handle_error(command.group(0), "Exception (%s)." % e)
 
@@ -1515,7 +1516,7 @@ class IxchelCommand:
             try:
                 r = requests.get(url, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"}, timeout=25)
             except Exception as e:
-                        self.logger.error("NWS API request (%s) failed.", url)
+                self.logger.error("NWS API request (%s) failed.", url)
             
             if r.ok:
                 data = r.json()

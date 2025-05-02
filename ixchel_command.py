@@ -1538,7 +1538,7 @@ class IxchelCommand:
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text":  f"*Please be careful!*  Current weather conditions are above the observing limit:\nPrecipitation: {precip}%, Relative Humidity: {humidity}%",
+                            "text":  f"🚨*PLEASE BE CAREFUL!*🚨  Current weather conditions are above the observing limit:\n*Precipitation: {precip}%, Relative Humidity: {humidity}%*",
                         },
                     }])
 

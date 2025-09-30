@@ -23,7 +23,7 @@ telescope_interfaces = {
                 'type': float
             },
             'dec': {
-                'regex': r'(?<=dec=).*?$',
+                'regex': r'(?<=dec=).*?(?=$| )',
                 'value': None,
                 'type': float
             },
@@ -43,7 +43,7 @@ telescope_interfaces = {
                 'type': float
             },
             'dec': {
-                'regex': r'(?<=dec=).*?$',
+                'regex': r'(?<=dec=).*?(?=$| )',
                 'value': None,
                 'type': float
             },

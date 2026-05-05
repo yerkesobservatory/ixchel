@@ -1528,7 +1528,7 @@ class IxchelCommand:
             self.resetSession()
 
             # Send a weather warning if necessary
-            url = self.config.get("weather", "gridpoint_hourly_url", "https://api.weather.gov/gridpoints/MTR/88,127")
+            url = self.config.get("weather", "gridpoint_weather_warning_url", "https://api.weather.gov/gridpoints/MTR/88,127")
             try:
                 r = requests.get(url, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"}, timeout=25)
             except Exception as e:

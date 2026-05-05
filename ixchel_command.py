@@ -14,7 +14,7 @@ import logging
 import re
 import requests
 import time
-import datetime
+from datetime import datetime, timezone, timedelta
 import pytz
 from globals import doAbort
 from telescope_interface import TelescopeInterface
@@ -1488,6 +1488,22 @@ class IxchelCommand:
         except Exception as e:
             self.handle_error(command.group(0), "Exception (%s)." % e)
 
+    def _parse_duration(self, duration_str):
+        """Parse ISO 8601 duration like PT2H, PT1H, PT3H into timedelta."""
+        match = re.match(r'PT(\d+)H', duration_str)
+        return timedelta(hours=int(match.group(1))) if match else timedelta(hours=1)
+
+    def _get_current_weather_value(self, values):
+        """Find the value whose validTime window covers right now."""
+        now = datetime.now(timezone.utc)
+        for entry in values:
+            time_str, duration_str = entry["validTime"].split("/")
+            start = datetime.fromisoformat(time_str)
+            end = start + self._parse_duration(duration_str)
+            if start <= now < end:
+                return entry["value"]
+        return None
+
     def set_lock(self, command, user):
         if self.is_locked():
             self.slack.send_message(
@@ -1512,7 +1528,7 @@ class IxchelCommand:
             self.resetSession()
 
             # Send a weather warning if necessary
-            url = self.config.get("weather", "gridpoint_hourly_url", "https://api.weather.gov/gridpoints/MTR/88,127/forecast/hourly")
+            url = self.config.get("weather", "gridpoint_hourly_url", "https://api.weather.gov/gridpoints/MTR/88,127")
             try:
                 r = requests.get(url, headers={"User-Agent": "stoneedgeobservatory@uchicago.edu"}, timeout=25)
             except Exception as e:
@@ -1520,25 +1536,34 @@ class IxchelCommand:
             
             if r.ok:
                 data = r.json()
-                forecasts = data["properties"]["periods"]
 
                 humidity = 0
                 precip = 0
+                skycover = 0
 
-                for forecast in forecasts[1:2]:
-                    weather_humidity = forecast["relativeHumidity"]["value"]
-                    weather_precip = forecast["probabilityOfPrecipitation"]["value"]
+                weather_skycover = self._get_current_weather_value(data["skyCover"]["values"])
+                weather_humidity = self._get_current_weather_value(data["relativeHumidity"]["values"])
+                weather_precip = self._get_current_weather_value(data["probabilityOfPrecipitation"]["values"])
 
-                    humidity = weather_humidity
+                humidity = weather_humidity if weather_humidity is not None else 0
+                precip = weather_precip if weather_precip is not None else 0
+                skycover = weather_skycover if weather_skycover is not None else 0
                     
-                    precip = weather_precip
-                
-                if humidity > 90 or precip > 9:
+                if humidity > 90 or precip > 9 or skycover > 25:
                     self.slack.send_message("", blocks=[{
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text":  f"🚨*PLEASE BE CAREFUL!*🚨  Current weather conditions are above the observing limit:\n*Precipitation: {precip}%, Relative Humidity: {humidity}%*",
+                            "text":  f"🚨*PLEASE BE CAREFUL!*🚨  Current weather conditions are above the observing limit:\n*Precipitation: {precip}%, Relative Humidity: {humidity}%, Sky Cover: {skycover}%*",
+                        },
+                    }])
+                
+                if skycover > 25:
+                    self.slack.send_message("", blocks=[{
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text":  "❌ Observing with sky cover > 25% will most likely produce poor data.",
                         },
                     }])
 

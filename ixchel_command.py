@@ -638,7 +638,7 @@ class IxchelCommand:
                 report = ""
                 index = 1
                 # calculate local time of observatory
-                telescope_now = Time(datetime.datetime.utcnow(), scale="utc")
+                telescope_now = Time(datetime.utcnow(), scale="utc")
                 self.slack.send_message(
                     "%s found %d match(es):"
                     % (self.config.get("slack", "bot_name"), len(self.skyObjects))
@@ -1844,7 +1844,7 @@ class IxchelCommand:
             filter = self.config.get("hocusfocus", "filter", "clear")
             username = self.slack.get_user_by_id(user["id"]).get("name", user["id"])
             telescope = self.ixchel.telescope.earthLocation
-            telescope_now = Time(datetime.datetime.utcnow(), scale="utc")
+            telescope_now = Time(datetime.utcnow(), scale="utc")
             focus_plt_path = self.config.get(
                 "hocusfocus", "focus_plt_path", "/tmp/hocusfocus.png"
             )
@@ -2081,10 +2081,10 @@ class IxchelCommand:
                 "stars_url", self.config.get("stars_server", "stars_url")
             )
             telescope_interface.set_input_value(
-                "year", datetime.datetime.utcnow().strftime("%Y")
+                "year", datetime.utcnow().strftime("%Y")
             )
             telescope_interface.set_input_value(
-                "date", datetime.datetime.utcnow().strftime("%Y-%m-%d")
+                "date", datetime.utcnow().strftime("%Y-%m-%d")
             )
             # create a command that applies the specified values
             self.telescope.to_stars(telescope_interface)
@@ -2235,9 +2235,9 @@ class IxchelCommand:
                         })
 
             for forecast in forecasts[1:7]: # About the next five hours or so
-                dt_local = datetime.datetime.fromisoformat(forecast["startTime"])
+                dt_local = datetime.fromisoformat(forecast["startTime"])
                 dt_utc = dt_local.astimezone(pytz.timezone("UTC"))
-                dt_current = datetime.datetime.now().astimezone(pytz.timezone("US/Pacific"))
+                dt_current = datetime.now().astimezone(pytz.timezone("US/Pacific"))
                 hours_diff = (dt_local - dt_current).seconds // 3600
 
                 if hours_diff == 23:
@@ -2296,7 +2296,7 @@ class IxchelCommand:
             time,
             bin,
             hdr,
-            datetime.datetime.utcnow().strftime("%y%m%d_%H%M%S"),
+            datetime.utcnow().strftime("%y%m%d_%H%M%S"),
             user.lower(),
             index,
         )
@@ -2306,9 +2306,9 @@ class IxchelCommand:
         path = (
             self.image_dir
             + "/"
-            + datetime.datetime.utcnow().strftime("%Y")
+            + datetime.utcnow().strftime("%Y")
             + "/"
-            + datetime.datetime.utcnow().strftime("%Y-%m-%d")
+            + datetime.utcnow().strftime("%Y-%m-%d")
             + "/"
             + user.lower()
             + "/"

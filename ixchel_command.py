@@ -1541,9 +1541,9 @@ class IxchelCommand:
                 precip = 0
                 skycover = 0
 
-                weather_skycover = self._get_current_weather_value(data["skyCover"]["values"])
-                weather_humidity = self._get_current_weather_value(data["relativeHumidity"]["values"])
-                weather_precip = self._get_current_weather_value(data["probabilityOfPrecipitation"]["values"])
+                weather_skycover = self._get_current_weather_value(data["properties"]["skyCover"]["values"])
+                weather_humidity = self._get_current_weather_value(data["properties"]["relativeHumidity"]["values"])
+                weather_precip = self._get_current_weather_value(data["properties"]["probabilityOfPrecipitation"]["values"])
 
                 humidity = weather_humidity if weather_humidity is not None else 0
                 precip = weather_precip if weather_precip is not None else 0

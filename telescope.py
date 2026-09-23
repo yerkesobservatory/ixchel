@@ -102,7 +102,8 @@ class SSH:
             result["stdout"] = stdout.readlines()
             result["stderr"] = stderr.readlines()
             self.logger.info("Aster stdout: " + str(result["stdout"]))
-            self.logger.info("Aster stderr: " + str(result["stderr"]))
+            if len(result["stderr"]) > 0:
+                self.logger.info("Aster stderr: " + str(result["stderr"]))
             if len(result["stdout"]) > 0:
                 result["response"] = result["stdout"][0]
                 # get the pid
@@ -140,7 +141,8 @@ class SSH:
             result["stdout"] = stdout.readlines()
             result["stderr"] = stderr.readlines()
             self.logger.info("Aster stdout: " + str(result["stdout"]))
-            self.logger.info("Aster stderr: " + str(result["stderr"]))
+            if len(result["stderr"]) > 0:
+                self.logger.info("Aster stderr: " + str(result["stderr"]))
             if len(result["stdout"]) > 0:
                 result["response"] = result["stdout"]
             elif len(result["stderr"]) > 0:

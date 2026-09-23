@@ -192,8 +192,8 @@ class IxchelCommand:
         )
 
     def handle_error(self, command, error):
-        self.logger.error("Command failed (%s). %s", command, error)
-        self.slack.send_message(f"Error. Command ({command}) failed. {error}")
+        self.logger.exception("Command failed (%s). %s", command, error)
+        self.slack.send_message(f"Error. Command ({command}) failed. Please try again or contact your SEO instructor.\nDebug info: `{error}`")
 
     def _track(self, on_off):
         try:
